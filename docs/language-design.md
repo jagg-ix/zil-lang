@@ -14,3 +14,5 @@ Macro examples:
 - IT DSL convenience forms (`DATACENTER`, `RULESET`, `MIRROR_CHECK`)
 - policy shorthand expansion
 
+Runtime profiles (such as DataScript) are outside core and outside macros.
+They define execution/storage mappings for already-lowered canonical IR.

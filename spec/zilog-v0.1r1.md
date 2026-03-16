@@ -1,8 +1,8 @@
-# Z-Core v0.1r1 (Draft)
+# Zilog v0.1r1 (Draft)
 
 ## Scope
 
-Z-Core defines a declarative language for facts, rules, constraints, and queries.
+Zilog defines a declarative language for facts, rules, constraints, and queries.
 It is implementation-agnostic and Datalog-first in semantics.
 
 ## Core Language Boundaries
@@ -35,3 +35,5 @@ An implementation is conformant if it:
 3. Evaluates rules to least-fixpoint under stratified negation.
 4. Preserves snapshot semantics at specified frontiers/revisions.
 
+Concrete backend conformance profiles may define operational mappings.
+First profile: `spec/runtime-datascript-profile-v0.1.md`.

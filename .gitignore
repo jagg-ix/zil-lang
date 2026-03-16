@@ -10,3 +10,5 @@
 *.tmp
 .tmp/
 out/
+.cpcache/
+.m2/
