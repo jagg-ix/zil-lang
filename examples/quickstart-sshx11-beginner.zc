@@ -1,0 +1,23 @@
+MODULE quickstart.sshx11.
+
+HOST local_laptop [environment=prod, type=physical, timezone="America/Mexico_City"].
+HOST remote_node [environment=prod, type=vm, timezone="UTC"].
+
+SERVICE vpn_overlay [env=prod, criticality=high].
+SERVICE ssh_tunnel [env=prod, criticality=high, uses=[vpn_overlay]].
+SERVICE x11_proxy [env=prod, criticality=high, uses=[ssh_tunnel]].
+
+DATASOURCE tunnel_health [type=rest, format=json, url="http://127.0.0.1:8096/health", poll_mode=interval, poll_every_ms=5000].
+METRIC relay_latency_ms [source=datasource:tunnel_health, unit=ms].
+
+EVENT incident_window [start_time="2026-03-16T11:00:00-06:00", labels=["sshx11","vpn","incident"]].
+
+LTS_ATOM sshx11_session [states=#{offline connecting ready degraded}, initial=offline, transitions={[offline start] [connecting], [connecting auth_ok] [ready], [ready transport_drop] [degraded], [degraded recover] [ready]}].
+
+POLICY no_split_brain_transport [condition="NOT (single_path AND dual_path)", criticality=high].
+
+QUERY critical_services:
+FIND ?s WHERE ?s#kind@entity:service AND ?s#criticality@value:high.
+
+QUERY session_edges:
+FIND ?e WHERE lts_atom:sshx11_session#edge@?e.
