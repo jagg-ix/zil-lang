@@ -1,8 +1,8 @@
-# Zilog v0.1r1 (Draft)
+# Zil v0.1r1 (Draft)
 
 ## Scope
 
-Zilog defines a declarative language for facts, rules, constraints, and queries.
+Zil defines a declarative language for facts, rules, constraints, and queries.
 It is implementation-agnostic and Datalog-first in semantics.
 
 ## Core Language Boundaries

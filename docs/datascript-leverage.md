@@ -1,14 +1,14 @@
-# Leveraging DataScript for Zilog
+# Leveraging DataScript for Zil
 
-This guide explains why DataScript is a strong fit for Zilog and how to use it
+This guide explains why DataScript is a strong fit for Zil and how to use it
 without collapsing core language design into backend-specific behavior.
 
 Reference implementation source:
 `https://github.com/tonsky/datascript`
 
-## Why DataScript Fits Zilog
+## Why DataScript Fits Zil
 
-1. Datalog-first evaluation aligns with Zilog rule/query semantics.
+1. Datalog-first evaluation aligns with Zil rule/query semantics.
 2. Immutable DB values support revision and frontier snapshots.
 3. Recursive rules directly model transitive dependencies and causal closure.
 4. Tuple attributes provide practical composite identities and constraints.
@@ -17,7 +17,7 @@ Reference implementation source:
 
 Keep this boundary strict:
 
-- Zilog core semantics remain in `spec/`.
+- Zil core semantics remain in `spec/`.
 - DataScript details live in runtime profile + adapter code.
 - Source language should not require DataScript-specific syntax.
 
@@ -92,7 +92,7 @@ Do not let macros change semantic meaning; they must lower to core forms.
 
 ## Minimal Runtime API
 
-The scaffold in `src/zilog/runtime/datascript.clj` provides:
+The scaffold in `src/zil/runtime/datascript.clj` provides:
 
 1. `make-conn`
 2. `transact-facts!`

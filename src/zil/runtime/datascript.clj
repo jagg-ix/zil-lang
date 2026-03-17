@@ -1,5 +1,5 @@
-(ns zilog.runtime.datascript
-  "Draft DataScript runtime scaffold for Zilog v0.1.
+(ns zil.runtime.datascript
+  "Draft DataScript runtime scaffold for Zil v0.1.
 
   This namespace intentionally stays small and explicit:
   - one connection creator,
@@ -8,37 +8,37 @@
   - causal order helpers via recursive Datalog rules."
   (:require [datascript.core :as d]))
 
-(def zilog-schema
+(def zil-schema
   "DataScript schema used by the draft runtime profile.
 
   Composite tuples enforce identity and simplify lookups:
-  - :zilog/fact-key = [object relation subject]
-  - :zilog/fact-at-rev = [object relation subject revision]
-  - :zilog/before-key = [left-event right-event]"
-  {:zilog/object {:db/index true}
-   :zilog/relation {:db/index true}
-   :zilog/subject {:db/index true}
-   :zilog/revision {:db/index true}
-   :zilog/event {:db/index true}
-   :zilog/op {:db/index true}
-   :zilog/fact-key {:db/tupleAttrs [:zilog/object :zilog/relation :zilog/subject]
+  - :zil/fact-key = [object relation subject]
+  - :zil/fact-at-rev = [object relation subject revision]
+  - :zil/before-key = [left-event right-event]"
+  {:zil/object {:db/index true}
+   :zil/relation {:db/index true}
+   :zil/subject {:db/index true}
+   :zil/revision {:db/index true}
+   :zil/event {:db/index true}
+   :zil/op {:db/index true}
+   :zil/fact-key {:db/tupleAttrs [:zil/object :zil/relation :zil/subject]
                     :db/unique :db.unique/identity}
-   :zilog/fact-at-rev {:db/tupleAttrs [:zilog/object :zilog/relation :zilog/subject :zilog/revision]
+   :zil/fact-at-rev {:db/tupleAttrs [:zil/object :zil/relation :zil/subject :zil/revision]
                        :db/unique :db.unique/identity}
-   :zilog/event-left {:db/index true}
-   :zilog/event-right {:db/index true}
-   :zilog/before-key {:db/tupleAttrs [:zilog/event-left :zilog/event-right]
+   :zil/event-left {:db/index true}
+   :zil/event-right {:db/index true}
+   :zil/before-key {:db/tupleAttrs [:zil/event-left :zil/event-right]
                       :db/unique :db.unique/identity}})
 
 (defn make-conn
-  "Create a DataScript connection for Zilog facts.
+  "Create a DataScript connection for Zil facts.
   Optional `extra-schema` may extend the base schema."
   ([] (make-conn {}))
   ([extra-schema]
-   (d/create-conn (merge zilog-schema extra-schema))))
+   (d/create-conn (merge zil-schema extra-schema))))
 
 (defn fact->tx
-  "Convert a canonical Zilog fact map into a DataScript transaction entity.
+  "Convert a canonical Zil fact map into a DataScript transaction entity.
 
   Expected shape:
   {:object \"...\"
@@ -57,13 +57,13 @@
          (keyword? relation)
          (some? subject)
          (integer? revision)]}
-  (cond-> {:zilog/object object
-           :zilog/relation relation
-           :zilog/subject subject
-           :zilog/attrs attrs
-           :zilog/revision revision
-           :zilog/op op}
-    event (assoc :zilog/event event)))
+  (cond-> {:zil/object object
+           :zil/relation relation
+           :zil/subject subject
+           :zil/attrs attrs
+           :zil/revision revision
+           :zil/op op}
+    event (assoc :zil/event event)))
 
 (defn before-edge->tx
   "Convert a causal edge into a DataScript transaction entity.
@@ -71,8 +71,8 @@
   {:left :e1 :right :e2} means before(e1, e2)."
   [{:keys [left right]}]
   {:pre [(keyword? left) (keyword? right)]}
-  {:zilog/event-left left
-   :zilog/event-right right})
+  {:zil/event-left left
+   :zil/event-right right})
 
 (defn transact-facts!
   "Transact one or more canonical fact maps."
@@ -90,13 +90,13 @@
   (d/q '[:find ?o ?r ?s ?rev ?op ?attrs
          :in $ ?frontier
          :where
-         [?e :zilog/object ?o]
-         [?e :zilog/relation ?r]
-         [?e :zilog/subject ?s]
-         [?e :zilog/revision ?rev]
+         [?e :zil/object ?o]
+         [?e :zil/relation ?r]
+         [?e :zil/subject ?s]
+         [?e :zil/revision ?rev]
          [(<= ?rev ?frontier)]
-         [?e :zilog/op ?op]
-         [?e :zilog/attrs ?attrs]]
+         [?e :zil/op ?op]
+         [?e :zil/attrs ?attrs]]
        db frontier))
 
 (defn latest-fact-state
@@ -135,11 +135,11 @@
 (def before-rules
   "Recursive Datalog rules for transitive closure of before(e1, e2)."
   '[[(before* ?x ?y)
-     [?e :zilog/event-left ?x]
-     [?e :zilog/event-right ?y]]
+     [?e :zil/event-left ?x]
+     [?e :zil/event-right ?y]]
     [(before* ?x ?y)
-     [?e :zilog/event-left ?x]
-     [?e :zilog/event-right ?z]
+     [?e :zil/event-left ?x]
+     [?e :zil/event-right ?z]
      (before* ?z ?y)]])
 
 (defn before?

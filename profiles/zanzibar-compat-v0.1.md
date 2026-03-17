@@ -1,6 +1,6 @@
 # Zanzibar Compatibility Profile v0.1 (Draft)
 
-This profile layers authorization-specific semantics on top of Zilog.
+This profile layers authorization-specific semantics on top of Zil.
 
 ## Primitives
 
@@ -16,6 +16,6 @@ This profile layers authorization-specific semantics on top of Zilog.
 
 ## Notes
 
-- Profile semantics are separate from general Zilog semantics.
+- Profile semantics are separate from general Zil semantics.
 - Profile evaluation must be stratified and deterministic.
 

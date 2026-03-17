@@ -1,6 +1,6 @@
-# Zilog Language
+# Zil Lang
 
-Zilog is a declarative tuple-and-rule language for general knowledge modeling,
+Zil Lang (short name: Zil) is a declarative tuple-and-rule language for general knowledge modeling,
 verification, and policy reasoning.
 
 This repository now includes both:
@@ -22,7 +22,7 @@ This repository now includes both:
 - `docs/` explanatory guides and rationale
 - `examples/` illustrative models and queries
 - `notes/` open issues and design decisions
-- `src/zilog/runtime/` executable runtime scaffolds
+- `src/zil/runtime/` executable runtime scaffolds
 
 ## DataScript Leverage
 
@@ -35,18 +35,24 @@ We leverage the Clojure DataScript engine as a concrete runtime target:
 See:
 - `spec/runtime-datascript-profile-v0.1.md`
 - `docs/datascript-leverage.md`
-- `src/zilog/runtime/datascript.clj`
+- `src/zil/runtime/datascript.clj`
 
 ## Quick Start (Clojure)
 
 ```bash
-clojure -M -e "(require 'zilog.runtime.datascript) (println :ok)"
+clojure -M -e "(require 'zil.runtime.datascript) (println :ok)"
+```
+
+Core engine load:
+
+```bash
+clojure -M -e "(require 'zil.core) (println :ok)"
 ```
 
 Minimal usage:
 
 ```clj
-(require '[zilog.runtime.datascript :as zr])
+(require '[zil.runtime.datascript :as zr])
 
 (def conn (zr/make-conn))
 
@@ -63,6 +69,12 @@ Minimal usage:
     :event :e1}])
 
 (zr/facts-at-or-before @conn 1)
+```
+
+Run a `.zc` file through the core engine:
+
+```bash
+clojure -M -m zil.cli examples/it-infra-minimal.zc
 ```
 
 ## Current Status

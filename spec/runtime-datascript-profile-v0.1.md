@@ -1,13 +1,13 @@
-# Zilog DataScript Runtime Profile v0.1 (Draft)
+# Zil DataScript Runtime Profile v0.1 (Draft)
 
 ## Purpose
 
-This profile defines one concrete execution target for Zilog using
+This profile defines one concrete execution target for Zil using
 DataScript (Clojure / ClojureScript Datalog engine).
 
 It is a runtime profile, not the core language.
 Core semantics remain backend-agnostic and are defined in:
-- `spec/zilog-v0.1r1.md`
+- `spec/zil-v0.1r1.md`
 - `spec/time-core-v0.1.md`
 
 ## Canonical Runtime IR
@@ -43,22 +43,22 @@ A conforming runtime adapter must lower source syntax into one of two IR records
 The DataScript profile maps IR fields to datoms:
 
 - fact entity attributes:
-  - `:zilog/object`
-  - `:zilog/relation`
-  - `:zilog/subject`
-  - `:zilog/attrs`
-  - `:zilog/revision`
-  - `:zilog/event`
-  - `:zilog/op`
+  - `:zil/object`
+  - `:zil/relation`
+  - `:zil/subject`
+  - `:zil/attrs`
+  - `:zil/revision`
+  - `:zil/event`
+  - `:zil/op`
 - causal edge attributes:
-  - `:zilog/event-left`
-  - `:zilog/event-right`
+  - `:zil/event-left`
+  - `:zil/event-right`
 
 Composite tuple attributes are required in this profile:
 
-- `:zilog/fact-key = [:zilog/object :zilog/relation :zilog/subject]`
-- `:zilog/fact-at-rev = [:zilog/object :zilog/relation :zilog/subject :zilog/revision]`
-- `:zilog/before-key = [:zilog/event-left :zilog/event-right]`
+- `:zil/fact-key = [:zil/object :zil/relation :zil/subject]`
+- `:zil/fact-at-rev = [:zil/object :zil/relation :zil/subject :zil/revision]`
+- `:zil/before-key = [:zil/event-left :zil/event-right]`
 
 The tuple constraints provide:
 - identity/upsert behavior for duplicate logical facts,
