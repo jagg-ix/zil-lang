@@ -117,10 +117,166 @@
        (remove str/blank?)
        vec))
 
+(def macro-header-re
+  #"(?i)^MACRO\s+([A-Za-z0-9_.:-]+)\s*\((.*)\)\s*:\s*$")
+
+(def macro-end-re
+  #"(?i)^ENDMACRO\.\s*$")
+
+(def macro-emit-re
+  #"(?i)^EMIT\s+(.+)$")
+
+(def macro-use-re
+  #"(?i)^USE\s+([A-Za-z0-9_.:-]+)\s*\((.*)\)\.\s*$")
+
+(defn split-arguments
+  "Split a comma-separated argument list, respecting quoted strings and bracket depth."
+  [s]
+  (let [in (str/trim (or s ""))]
+    (if (str/blank? in)
+      []
+      (let [final
+            (loop [chs (seq in)
+                   acc []
+                   token ""
+                   depth 0
+                   in-string? false
+                   escape? false]
+              (if-let [c (first chs)]
+                (cond
+                  escape?
+                  (recur (next chs) acc (str token c) depth in-string? false)
+
+                  in-string?
+                  (cond
+                    (= c \\) (recur (next chs) acc (str token c) depth in-string? true)
+                    (= c \") (recur (next chs) acc (str token c) depth false false)
+                    :else (recur (next chs) acc (str token c) depth in-string? false))
+
+                  (= c \")
+                  (recur (next chs) acc (str token c) depth true false)
+
+                  (#{\( \[ \{} c)
+                  (recur (next chs) acc (str token c) (inc depth) in-string? false)
+
+                  (#{\) \] \}} c)
+                  (do
+                    (when (zero? depth)
+                      (throw (ex-info "Unbalanced closing delimiter in argument list" {:args s})))
+                    (recur (next chs) acc (str token c) (dec depth) in-string? false))
+
+                  (and (= c \,) (zero? depth))
+                  (recur (next chs) (conj acc (str/trim token)) "" depth in-string? false)
+
+                  :else
+                  (recur (next chs) acc (str token c) depth in-string? false))
+                (do
+                  (when in-string?
+                    (throw (ex-info "Unterminated string literal in argument list" {:args s})))
+                  (when (not (zero? depth))
+                    (throw (ex-info "Unbalanced delimiters in argument list" {:args s})))
+                  (conj acc (str/trim token)))))]
+        (when (some str/blank? final)
+          (throw (ex-info "Empty argument in list" {:args s})))
+        final))))
+
+(defn parse-macro-params
+  [s]
+  (let [params (split-arguments s)]
+    (doseq [p params]
+      (when-not (re-matches #"[A-Za-z_][A-Za-z0-9_:\-\.]*" p)
+        (throw (ex-info "Invalid macro parameter name" {:param p}))))
+    (when (not= (count params) (count (distinct params)))
+      (throw (ex-info "Duplicate macro parameter name" {:params params})))
+    (vec params)))
+
+(defn collect-macro-definitions
+  "Collect `MACRO ... ENDMACRO.` definitions and return:
+  {:macros {name {:params [...] :emit [...]}} :payload [...non-definition lines...]}"
+  [lines]
+  (let [n (count lines)]
+    (loop [i 0
+           macros {}
+           payload []]
+      (if (>= i n)
+        {:macros macros :payload payload}
+        (let [line (nth lines i)]
+          (if-let [[_ name params-s] (re-matches macro-header-re line)]
+            (let [params (parse-macro-params params-s)
+                  _ (when (contains? macros name)
+                      (throw (ex-info "Duplicate macro definition" {:macro name})))
+                  [next-i emit-lines]
+                  (loop [j (inc i)
+                         emit-lines []]
+                    (when (>= j n)
+                      (throw (ex-info "Unterminated macro definition; missing ENDMACRO." {:macro name})))
+                    (let [body-line (nth lines j)]
+                      (cond
+                        (re-matches macro-end-re body-line)
+                        [(inc j) emit-lines]
+
+                        :else
+                        (if-let [[_ emit] (re-matches macro-emit-re body-line)]
+                          (recur (inc j) (conj emit-lines emit))
+                          (throw (ex-info "Invalid macro body line (expected EMIT or ENDMACRO.)"
+                                          {:macro name :line body-line}))))))]
+              (recur next-i
+                     (assoc macros name {:params params :emit emit-lines})
+                     payload))
+            (recur (inc i) macros (conj payload line))))))))
+
+(defn instantiate-macro
+  [macros name args-s]
+  (let [{:keys [params emit] :as m} (get macros name)]
+    (when-not m
+      (throw (ex-info "Unknown macro invocation" {:macro name})))
+    (let [args (split-arguments args-s)]
+      (when (not= (count args) (count params))
+        (throw (ex-info "Macro arity mismatch"
+                        {:macro name :expected (count params) :actual (count args)})))
+      (let [sub-map (zipmap params args)]
+        (mapv (fn [line]
+                (reduce-kv (fn [acc p v]
+                             (str/replace acc (str "{{" p "}}") v))
+                           line
+                           sub-map))
+              emit)))))
+
+(defn expand-macro-uses
+  "Expand `USE macro(args...).` lines, recursively."
+  [lines macros]
+  (loop [queue (seq lines)
+         out []
+         steps 0]
+    (if-let [line (first queue)]
+      (if-let [[_ macro-name args-s] (re-matches macro-use-re line)]
+        (let [next-steps (inc steps)]
+          (when (> next-steps 10000)
+            (throw (ex-info "Macro expansion exceeded safe step limit (possible recursion loop)"
+                            {:steps next-steps})))
+          (let [expanded (instantiate-macro macros macro-name args-s)]
+            (recur (concat expanded (rest queue)) out next-steps)))
+        (recur (next queue) (conj out line) steps))
+      (vec out))))
+
+(defn expand-macros
+  "Expand native Zil macros. This is a language-level feature and does not use Clojure macros.
+
+  Macro syntax:
+  - `MACRO name(p1, p2):`
+  - body lines: `EMIT ...`
+  - end: `ENDMACRO.`
+  - invocation: `USE name(arg1, arg2).`
+  - placeholders in EMIT lines: `{{p1}}`."
+  [text]
+  (let [lines (preprocess-lines text)
+        {:keys [macros payload]} (collect-macro-definitions lines)]
+    (expand-macro-uses payload macros)))
+
 (defn parse-program
   "Parse Zil source text into canonical structural IR."
   [text]
-  (let [lines (preprocess-lines text)
+  (let [lines (expand-macros text)
         n (count lines)]
     (loop [i 0
            out {:module nil :facts [] :rules [] :queries []}]

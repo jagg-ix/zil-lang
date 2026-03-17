@@ -16,3 +16,6 @@ Macro examples:
 
 Runtime profiles (such as DataScript) are outside core and outside macros.
 They define execution/storage mappings for already-lowered canonical IR.
+
+Zil macros are language-native (`MACRO`/`EMIT`/`USE`) and expand before parsing.
+They are intentionally independent of host-language macro systems.

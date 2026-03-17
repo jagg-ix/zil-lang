@@ -77,6 +77,25 @@ Run a `.zc` file through the core engine:
 clojure -M -m zil.cli examples/it-infra-minimal.zc
 ```
 
+## Native Macro System
+
+Zil has its own language-level macro system (independent of Clojure macros):
+
+```zc
+MACRO link_pair(a,b):
+EMIT {{a}}#connected_to@{{b}}.
+EMIT {{b}}#connected_to@{{a}}.
+ENDMACRO.
+
+USE link_pair(location:dcA, location:dcB).
+```
+
+Rules:
+- define with `MACRO name(params): ... ENDMACRO.`
+- each body line is `EMIT ...`
+- invoke with `USE name(args).`
+- placeholders are `{{param}}`
+
 ## Current Status
 
 - Core: Draft
