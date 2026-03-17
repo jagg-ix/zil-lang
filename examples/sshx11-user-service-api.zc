@@ -1,0 +1,25 @@
+MODULE sshx11.user_service_api.
+
+HOST shared_workstation [environment=prod, type=physical].
+HOST user_session [environment=prod, type=process].
+
+SERVICE sshx11_user_daemon [env=prod, criticality=high].
+SERVICE vscode_sshx11_extension [env=prod, criticality=high, uses=[sshx11_user_daemon]].
+SERVICE sshx11_tray_widget [env=prod, criticality=low, uses=[sshx11_user_daemon]].
+SERVICE sshx11_cli_client [env=prod, criticality=low, uses=[sshx11_user_daemon]].
+
+DATASOURCE daemon_health [type=rest, format=json, url="http://127.0.0.1:19636/v1/health", poll_mode=interval, poll_every_ms=5000].
+DATASOURCE daemon_state [type=file, format=json, path="verification_results/runtime/sshx11d/state.json"].
+DATASOURCE daemon_events [type=file, format=json, path="verification_results/runtime/sshx11d/events.ndjson"].
+
+LTS_ATOM user_service_lifecycle [states=#{stopped starting ready degraded}, initial=stopped, transitions={[stopped start_daemon] [starting], [starting health_ok] [ready], [ready command_error] [degraded], [degraded recover] [ready], [ready stop_daemon] [stopped]}].
+
+POLICY per_user_isolation [condition="listen_scope_loopback AND auth_token_required AND state_dir_user_only", criticality=high].
+POLICY api_contract_sync [condition="api_contract_v1 AND named_commands_compatible_with_extension", criticality=high].
+POLICY least_privilege [condition="run_as_user AND no_admin_required", criticality=high].
+
+QUERY daemon_clients:
+FIND ?s WHERE ?s#kind@entity:service AND ?s#uses@value:sshx11_user_daemon.
+
+QUERY critical_policies:
+FIND ?p WHERE ?p#kind@entity:policy AND ?p#criticality@value:high.

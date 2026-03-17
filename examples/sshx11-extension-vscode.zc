@@ -1,0 +1,32 @@
+MODULE sshx11.extension.vscode.
+
+HOST local_workstation [environment=prod, type=physical].
+HOST remote_extension_host [environment=prod, type=vm].
+
+SERVICE control_plane [env=prod, criticality=high, uses=[data_plane, vpn_overlay]].
+SERVICE data_plane [env=prod, criticality=high, uses=[ssh_tunnel, websocket_bridge]].
+SERVICE vpn_overlay [env=prod, criticality=high].
+SERVICE ssh_tunnel [env=prod, criticality=high].
+SERVICE websocket_bridge [env=prod, criticality=high].
+SERVICE socks_fallback [env=prod, criticality=high].
+SERVICE reverse_socks [env=prod, criticality=high].
+SERVICE webdav_gateway [env=prod, criticality=low].
+SERVICE vscode_profile_gen [env=prod, criticality=high].
+SERVICE extension_host_probe [env=prod, criticality=high].
+
+DATASOURCE plane_state [type=file, format=json, path="verification_results/runtime/sshx11_plane_state.json"].
+DATASOURCE reverse_socks_state [type=file, format=json, path="verification_results/runtime/sshx11_reverse_socks_state.json"].
+DATASOURCE ext_host_smoke [type=file, format=json, path="verification_results/stack_audits/sshx11_extension_host_paths_smoke.json"].
+
+LTS_ATOM sshx11_extension_flow [states=#{idle control_ready transport_ready profile_applied reverse_socks_ready extension_host_verified degraded}, initial=idle, transitions={[idle service_start] [control_ready], [control_ready transport_up] [transport_ready], [transport_ready apply_profile] [profile_applied], [profile_applied reverse_socks_start] [reverse_socks_ready], [reverse_socks_ready verify_extension_hosts] [extension_host_verified], [extension_host_verified transport_failure] [degraded], [degraded recover_transport] [transport_ready]}].
+
+POLICY relay_gate [condition="ssh_forward_mode_x AND websocket_ready AND l3_ready AND relay_enabled", criticality=high].
+POLICY extension_profile_exclusive [condition="NOT (profile_local AND profile_remote) AND NOT (profile_local AND profile_reverse_socks) AND NOT (profile_remote AND profile_reverse_socks)", criticality=high].
+POLICY reverse_socks_gate [condition="(NOT reverse_socks_required) OR reverse_socks_reachable", criticality=high].
+POLICY webdav_gate [condition="(NOT webdav_required) OR webdav_alive", criticality=low].
+
+QUERY critical_services:
+FIND ?s WHERE ?s#kind@entity:service AND ?s#criticality@value:high.
+
+QUERY extension_edges:
+FIND ?e WHERE lts_atom:sshx11_extension_flow#edge@?e.

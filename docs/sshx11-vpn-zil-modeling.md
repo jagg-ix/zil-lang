@@ -17,6 +17,7 @@ Reference architecture details in this repo:
 
 - `examples/sshx11-vpn-system.zc`
 - `examples/sshx11-extension-vscode.zc`
+- `examples/sshx11-user-service-api.zc`
 
 `sshx11-vpn-system.zc` encodes:
 
@@ -31,6 +32,13 @@ Reference architecture details in this repo:
 - extension-host verification artifact datasource
 - extension profile exclusivity policy and reverse-socks/webdav gates
 - extension lifecycle flow as an `LTS_ATOM`
+
+`sshx11-user-service-api.zc` adds:
+
+- per-user daemon + tray + VS Code client architecture scope
+- loopback API datasource and runtime state/event datasources
+- API contract sync and least-privilege isolation policies
+- user-service lifecycle model (`stopped -> starting -> ready -> degraded`)
 
 ## How To Check It
 
