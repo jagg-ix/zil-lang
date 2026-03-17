@@ -1,0 +1,37 @@
+MODULE sshx11.vpn.system.
+
+HOST local_workstation [environment=prod, type=physical, timezone="America/Mexico_City"].
+HOST linode_remote [environment=prod, type=vm, timezone="UTC"].
+
+SERVICE control_plane [env=prod, criticality=high, uses=[data_plane, vpn_overlay]].
+SERVICE data_plane [env=prod, criticality=high, uses=[x11_proxy, websocket_bridge]].
+SERVICE vpn_overlay [env=prod, criticality=high, uses=[ssh_tunnel]].
+SERVICE ssh_tunnel [env=prod, criticality=high].
+SERVICE x11_proxy [env=prod, criticality=high].
+SERVICE websocket_bridge [env=prod, criticality=high].
+SERVICE socks_fallback [env=prod, criticality=low, depended_by=[data_plane]].
+
+DATASOURCE control_plane_events [type=file, format=text, path="verification_results/stack_audits/sshx11_control_plane_events.ndjson", mode=lines].
+DATASOURCE data_plane_events [type=file, format=text, path="verification_results/stack_audits/sshx11_data_plane_events.ndjson", mode=lines].
+DATASOURCE plane_state [type=file, format=json, path="verification_results/runtime/sshx11_plane_state.json"].
+
+METRIC relay_latency_ms [source=datasource:data_plane_events, unit=ms].
+METRIC control_event_count [source=datasource:control_plane_events, unit=count].
+
+EVENT vpn_remote_test [start_time="2026-03-16T10:00:00-06:00", labels=["sshx11","vpn","remote"]].
+
+LTS_ATOM sshx11_vpn_session [states=#{idle ssh_connected cookies_ready ws_ready l3_ready relay_enabled degraded}, initial=idle, transitions={[idle ssh_login] [ssh_connected], [ssh_connected prepare_cookies] [cookies_ready], [cookies_ready websocket_online] [ws_ready], [ws_ready set_l3_ready] [l3_ready], [l3_ready enable_relay] [relay_enabled], [relay_enabled transport_failure] [degraded], [degraded recover_transport] [l3_ready]}].
+
+POLICY relay_gate [condition="ssh_forward_mode_x AND mit_cookie_generated AND xauth_invoked AND proxy_cookie_issued AND client_cookie_checked AND proxy_cookie_verified AND websocket_ready AND l3_ready AND relay_enabled", criticality=high].
+POLICY l2_optional_gate [condition="NOT l2_required OR l2_ready", criticality=high].
+POLICY buffer_sync_gate [condition="ssh_buffer_kb = x11_buffer_kb AND x11_buffer_kb = ws_buffer_kb", criticality=high].
+POLICY transport_profile_consistency [condition="NOT (transport_mode_single AND transport_mode_dual)", criticality=low].
+
+QUERY critical_services:
+FIND ?s WHERE ?s#criticality@value:high.
+
+QUERY relay_edges:
+FIND ?e WHERE lts_atom:sshx11_vpn_session#edge@?e.
+
+QUERY policy_entities:
+FIND ?p WHERE ?p#kind@entity:policy.

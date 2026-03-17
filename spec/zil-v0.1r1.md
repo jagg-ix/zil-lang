@@ -5,6 +5,14 @@
 Zil defines a declarative language for facts, rules, constraints, and queries.
 It is implementation-agnostic and Datalog-first in semantics.
 
+## Domain Positioning
+
+The core language is domain-agnostic.
+
+Domain-specific declaration sets (including current IT-oriented declarations)
+are optional layers that must lower into equivalent canonical core semantics.
+They do not alter core correctness criteria.
+
 ## Core Language Boundaries
 
 Core includes:
@@ -18,6 +26,8 @@ Core excludes:
 - host language syntax
 - runtime side-effect behavior
 - backend-specific storage/engine mechanics
+
+See also `docs/language-architecture.md` for the layered architecture view.
 
 ## Time Model
 

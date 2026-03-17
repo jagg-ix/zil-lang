@@ -9,6 +9,7 @@
   (:require [clojure.edn :as edn]
             [clojure.set :as cset]
             [clojure.string :as str]
+            [zil.lower :as zl]
             [zil.runtime.datascript :as zr]))
 
 (defn variable-token?
@@ -23,6 +24,7 @@
   - quoted strings
   - booleans
   - ints / doubles
+  - keywords / collections via safe EDN parse
   - fallback raw string token."
   [s]
   (let [t (str/trim s)]
@@ -31,6 +33,16 @@
       (re-matches #"(?i)true|false" t) (Boolean/parseBoolean (str/lower-case t))
       (re-matches #"-?\d+" t) (Long/parseLong t)
       (re-matches #"-?\d+\.\d+" t) (Double/parseDouble t)
+      (= "nil" t) nil
+      (or (str/starts-with? t ":")
+          (str/starts-with? t "[")
+          (str/starts-with? t "{")
+          (str/starts-with? t "(")
+          (str/starts-with? t "#{"))
+      (try
+        (edn/read-string t)
+        (catch Exception _
+          t))
       :else t)))
 
 (defn parse-term
@@ -38,17 +50,74 @@
   [s]
   (parse-scalar (str/trim s)))
 
+(defn split-top-level-comma
+  "Split comma-separated text while respecting nested delimiters and quoted strings."
+  [s context]
+  (let [in (str/trim (or s ""))]
+    (if (str/blank? in)
+      []
+      (let [final
+            (loop [chs (seq in)
+                   acc []
+                   token ""
+                   depth 0
+                   in-string? false
+                   escape? false]
+              (if-let [c (first chs)]
+                (cond
+                  escape?
+                  (recur (next chs) acc (str token c) depth in-string? false)
+
+                  in-string?
+                  (cond
+                    (= c \\) (recur (next chs) acc (str token c) depth in-string? true)
+                    (= c \") (recur (next chs) acc (str token c) depth false false)
+                    :else (recur (next chs) acc (str token c) depth in-string? false))
+
+                  (= c \")
+                  (recur (next chs) acc (str token c) depth true false)
+
+                  (#{\( \[ \{} c)
+                  (recur (next chs) acc (str token c) (inc depth) in-string? false)
+
+                  (#{\) \] \}} c)
+                  (do
+                    (when (zero? depth)
+                      (throw (ex-info "Unbalanced closing delimiter"
+                                      {:context context :text s})))
+                    (recur (next chs) acc (str token c) (dec depth) in-string? false))
+
+                  (and (= c \,) (zero? depth))
+                  (recur (next chs) (conj acc (str/trim token)) "" depth in-string? false)
+
+                  :else
+                  (recur (next chs) acc (str token c) depth in-string? false))
+                (do
+                  (when in-string?
+                    (throw (ex-info "Unterminated string literal"
+                                    {:context context :text s})))
+                  (when (not (zero? depth))
+                    (throw (ex-info "Unbalanced delimiters"
+                                    {:context context :text s})))
+                  (conj acc (str/trim token)))))]
+        (when (some str/blank? final)
+          (throw (ex-info "Empty entry in comma-separated list"
+                          {:context context :text s})))
+        final))))
+
 (defn parse-attrs
   "Parse attrs payload from inside `[...]`."
   [attrs-str]
   (if (or (nil? attrs-str) (str/blank? attrs-str))
     {}
-    (let [m (re-matcher #"\s*([A-Za-z0-9_:\-\.]+)\s*=\s*(\"(?:\\.|[^\"])*\"|[^,\]]+)\s*(?:,|$)"
-                        attrs-str)]
-      (loop [out {}]
-        (if (.find m)
-          (recur (assoc out (keyword (.group m 1)) (parse-term (.group m 2))))
-          out)))))
+    (reduce
+     (fn [out token]
+       (let [[_ k raw-v] (or (re-matches #"\s*([A-Za-z0-9_:\-\.]+)\s*=\s*(.+?)\s*$" token)
+                             (throw (ex-info "Invalid attr entry, expected key=value"
+                                             {:entry token :attrs attrs-str})))]
+         (assoc out (keyword k) (parse-term raw-v))))
+     {}
+     (split-top-level-comma attrs-str "attrs"))))
 
 (def atom-re
   #"^\s*(.+?)#([A-Za-z0-9_:\-\.]+)@(.+?)(?:\s*\[(.*)\])?\s*$")
@@ -111,11 +180,36 @@
 (defn preprocess-lines
   "Remove line comments and blank lines."
   [text]
-  (->> (str/split-lines text)
-       (map #(str/replace % #"\s*//.*$" ""))
-       (map str/trim)
-       (remove str/blank?)
-       vec))
+  (letfn [(strip-line-comment [line]
+            (loop [chs (seq line)
+                   out ""
+                   in-string? false
+                   escape? false]
+              (if-let [c (first chs)]
+                (cond
+                  escape?
+                  (recur (next chs) (str out c) in-string? false)
+
+                  in-string?
+                  (cond
+                    (= c \\) (recur (next chs) (str out c) in-string? true)
+                    (= c \") (recur (next chs) (str out c) false false)
+                    :else (recur (next chs) (str out c) in-string? false))
+
+                  (= c \")
+                  (recur (next chs) (str out c) true false)
+
+                  (and (= c \/) (= (first (next chs)) \/))
+                  out
+
+                  :else
+                  (recur (next chs) (str out c) false false))
+                out)))]
+    (->> (str/split-lines text)
+         (map strip-line-comment)
+         (map str/trim)
+         (remove str/blank?)
+         vec)))
 
 (def macro-header-re
   #"(?i)^MACRO\s+([A-Za-z0-9_.:-]+)\s*\((.*)\)\s*:\s*$")
@@ -132,53 +226,20 @@
 (defn split-arguments
   "Split a comma-separated argument list, respecting quoted strings and bracket depth."
   [s]
-  (let [in (str/trim (or s ""))]
-    (if (str/blank? in)
-      []
-      (let [final
-            (loop [chs (seq in)
-                   acc []
-                   token ""
-                   depth 0
-                   in-string? false
-                   escape? false]
-              (if-let [c (first chs)]
-                (cond
-                  escape?
-                  (recur (next chs) acc (str token c) depth in-string? false)
+  (split-top-level-comma s "macro arguments"))
 
-                  in-string?
-                  (cond
-                    (= c \\) (recur (next chs) acc (str token c) depth in-string? true)
-                    (= c \") (recur (next chs) acc (str token c) depth false false)
-                    :else (recur (next chs) acc (str token c) depth in-string? false))
+(def stdlib-declaration-re
+  #"(?i)^(SERVICE|HOST|DATASOURCE|METRIC|POLICY|EVENT|TM_ATOM|LTS_ATOM)\s+([A-Za-z0-9_.:-]+)(?:\s*\[(.*)\])?\.\s*$")
 
-                  (= c \")
-                  (recur (next chs) acc (str token c) depth true false)
-
-                  (#{\( \[ \{} c)
-                  (recur (next chs) acc (str token c) (inc depth) in-string? false)
-
-                  (#{\) \] \}} c)
-                  (do
-                    (when (zero? depth)
-                      (throw (ex-info "Unbalanced closing delimiter in argument list" {:args s})))
-                    (recur (next chs) acc (str token c) (dec depth) in-string? false))
-
-                  (and (= c \,) (zero? depth))
-                  (recur (next chs) (conj acc (str/trim token)) "" depth in-string? false)
-
-                  :else
-                  (recur (next chs) acc (str token c) depth in-string? false))
-                (do
-                  (when in-string?
-                    (throw (ex-info "Unterminated string literal in argument list" {:args s})))
-                  (when (not (zero? depth))
-                    (throw (ex-info "Unbalanced delimiters in argument list" {:args s})))
-                  (conj acc (str/trim token)))))]
-        (when (some str/blank? final)
-          (throw (ex-info "Empty argument in list" {:args s})))
-        final))))
+(defn parse-stdlib-declaration
+  "Parse one standard-library declaration line.
+  Example:
+  SERVICE payment [env=prod, criticality=high]."
+  [line]
+  (when-let [[_ kind name attrs] (re-matches stdlib-declaration-re line)]
+    {:kind (keyword (str/lower-case kind))
+     :name name
+     :attrs (parse-attrs attrs)}))
 
 (defn parse-macro-params
   [s]
@@ -279,10 +340,11 @@
   (let [lines (expand-macros text)
         n (count lines)]
     (loop [i 0
-           out {:module nil :facts [] :rules [] :queries []}]
+           out {:module nil :facts [] :rules [] :queries [] :declarations []}]
       (if (>= i n)
         out
-        (let [line (nth lines i)]
+        (let [line (nth lines i)
+              decl (parse-stdlib-declaration line)]
           (cond
             (re-matches #"(?i)^MODULE\s+[A-Za-z0-9_.:-]+\.\s*$" line)
             (let [[_ mod] (re-matches #"(?i)^MODULE\s+([A-Za-z0-9_.:-]+)\.\s*$" line)]
@@ -311,6 +373,13 @@
                                 (throw (ex-info "QUERY missing FIND line" {:query name})))
                   q (assoc (parse-find-line find-line) :name name)]
               (recur (+ i 2) (update out :queries conj q)))
+
+            decl
+            (let [lowered (zl/declaration->facts decl)]
+              (recur (inc i)
+                     (-> out
+                         (update :declarations conj decl)
+                         (update :facts into lowered))))
 
             (re-matches #".+\.\s*$" line)
             (recur (inc i) (update out :facts conj (parse-atom line)))
@@ -382,9 +451,10 @@
 (defn compile-program
   "Parse + validate + stratify a Zil program."
   [text]
-  (let [{:keys [module facts rules queries] :as parsed} (parse-program text)]
+  (let [{:keys [module facts rules queries declarations] :as parsed} (parse-program text)]
     (when (str/blank? module)
       (throw (ex-info "Program must define MODULE <name>." {})))
+    (zl/validate-declarations! declarations)
     (doseq [r rules] (ensure-rule-safety! r))
     (let [strata (stratify-rules rules)
           rules* (mapv (fn [r]
@@ -395,7 +465,12 @@
                                   :if body
                                   :stratum (apply max 0 (map #(get strata % 0) head)))))
                        rules)]
-      (assoc parsed :rules rules* :strata strata :queries queries :facts facts))))
+      (assoc parsed
+             :rules rules*
+             :strata strata
+             :queries queries
+             :facts facts
+             :declarations declarations))))
 
 (defn- bind-var
   [env var val]
@@ -498,7 +573,7 @@
 
 (defn execute-compiled
   "Execute compiled program and return final facts + query results."
-  [{:keys [module facts rules queries]}]
+  [{:keys [module facts rules queries declarations]}]
   (let [strata (sort (distinct (map :stratum rules)))
         by-stratum (group-by :stratum rules)
         final-facts (reduce
@@ -514,6 +589,7 @@
      :facts (->> final-facts
                  (sort-by (juxt :object :relation :subject))
                  vec)
+     :declarations declarations
      :queries query-results}))
 
 (defn execute-program
