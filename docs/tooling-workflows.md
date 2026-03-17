@@ -17,6 +17,7 @@ It answers:
 | Commit-unit policy gate | `./bin/zil commit-check <path> [tm.det\|lts\|constraint] [--allow-mixed]` | Enforce per-file unit contracts in CI. |
 | TLA bridge export | `./bin/zil export-tla <path> [output.tla] [module]` | Emit TLA skeleton from `LTS_ATOM` vocabulary. |
 | Lean4 bridge export | `./bin/zil export-lean <path> [output.lean] [namespace]` | Emit Lean `State/Event/step` skeletons. |
+| TLM formal one-shot pipeline | `./tools/tlm_formal_ci.sh [model] [out_dir] [module] [namespace]` | Run LTS gate + constraint gate + TLA export + Lean export in one command. |
 | Runtime ingest one-shot | `zil.runtime.ingest/ingest-all!` | Pull from `DATASOURCE` declarations once. |
 | Runtime ingest continuous | `zil.runtime.ingest/start-all-pollers!` | Poll `DATASOURCE` declarations with `poll_mode=interval`. |
 
@@ -115,6 +116,13 @@ Commands:
 cd zil
 ./bin/zil export-tla examples/sshx11-vpn-system.zc /tmp/sshx11.tla SSHX11BridgeFromZil
 ./bin/zil export-lean examples/sshx11-vpn-system.zc /tmp/sshx11.lean Zil.Generated.SSHX11
+```
+
+For the TLM formal bridge example, run the one-shot wrapper:
+
+```bash
+cd zil
+./tools/tlm_formal_ci.sh
 ```
 
 ## Workflow E: Live Observation / Ingest

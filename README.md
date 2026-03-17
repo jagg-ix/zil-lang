@@ -126,6 +126,35 @@ SSHX11 + VS Code extension-host modeling example:
 ./bin/zil bundle-check examples/sshx11-extension-vscode.zc constraint
 ```
 
+Native host + WASM/JS screen automation modeling example:
+
+```bash
+./bin/zil examples/native-host-wasm-screen-automation.zc
+./bin/zil bundle-check examples/native-host-wasm-screen-automation.zc lts
+./bin/zil bundle-check examples/native-host-wasm-screen-automation.zc constraint
+```
+
+Transaction-level modeling (TLM) macro-layer example:
+
+```bash
+./bin/zil examples/tlm-domain-macros.zc
+```
+
+TLM formal backend bridge example (Z3/TLA+/Lean4):
+
+```bash
+./bin/zil bundle-check examples/tlm-formal-bridge.zc lts
+./bin/zil bundle-check examples/tlm-formal-bridge.zc constraint
+./bin/zil export-tla examples/tlm-formal-bridge.zc /tmp/tlm_bridge.tla TLMBridgeFromZil
+./bin/zil export-lean examples/tlm-formal-bridge.zc /tmp/tlm_bridge.lean Zil.Generated.TLM
+```
+
+One-shot CI wrapper for the same chain:
+
+```bash
+./tools/tlm_formal_ci.sh
+```
+
 ## Native Macro System
 
 Zil has its own language-level macro system (independent of Clojure macros):
@@ -149,6 +178,9 @@ Domain library layer examples using macros:
 
 - `docs/domain-library-macros.md`
 - `examples/domain-library-macros.zc`
+- `docs/tlm-macro-layer.md`
+- `examples/tlm-domain-macros.zc`
+- `examples/tlm-formal-bridge.zc`
 
 ## Standard Declarations (Phase 1)
 
