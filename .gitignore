@@ -12,3 +12,5 @@
 out/
 .cpcache/
 .m2/
+target/
+dist/

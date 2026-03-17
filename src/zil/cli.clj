@@ -27,6 +27,12 @@
       (do
         (binding [*out* *err*]
           (println "Usage:")
+          (println "  ./bin/zil <program.zc>")
+          (println "  ./bin/zil bundle-check <file-or-dir> [tm.det|lts|constraint]")
+          (println "  ./bin/zil commit-check <file-or-dir> [tm.det|lts|constraint] [--allow-mixed]")
+          (println "  ./bin/zil export-tla <file-or-dir> [output.tla] [module_name]")
+          (println "  ./bin/zil export-lean <file-or-dir> [output.lean] [namespace]")
+          (println "")
           (println "  clojure -M -m zil.cli <program.zc>")
           (println "  clojure -M -m zil.cli bundle-check <file-or-dir> [tm.det|lts|constraint]")
           (println "  clojure -M -m zil.cli commit-check <file-or-dir> [tm.det|lts|constraint] [--allow-mixed]")

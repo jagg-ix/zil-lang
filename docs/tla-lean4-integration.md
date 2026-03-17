@@ -10,8 +10,8 @@ Validated locally in this repo:
 ```bash
 # 1) ZIL model checks
 cd zil
-clojure -M -m zil.cli bundle-check examples/sshx11-vpn-system.zc lts
-clojure -M -m zil.cli bundle-check examples/sshx11-vpn-system.zc constraint
+./bin/zil bundle-check examples/sshx11-vpn-system.zc lts
+./bin/zil bundle-check examples/sshx11-vpn-system.zc constraint
 
 # 2) Python+TLA contract verification
 cd ..
@@ -52,10 +52,10 @@ There is now a direct bridge exporter for LTS declarations:
 
 ```bash
 cd zil
-clojure -M -m zil.cli export-tla examples/sshx11-vpn-system.zc
-clojure -M -m zil.cli export-tla examples/sshx11-vpn-system.zc /tmp/sshx11_bridge.tla SSHX11BridgeFromZil
-clojure -M -m zil.cli export-lean examples/sshx11-vpn-system.zc
-clojure -M -m zil.cli export-lean examples/sshx11-vpn-system.zc /tmp/sshx11_bridge.lean Zil.Generated.SSHX11
+./bin/zil export-tla examples/sshx11-vpn-system.zc
+./bin/zil export-tla examples/sshx11-vpn-system.zc /tmp/sshx11_bridge.tla SSHX11BridgeFromZil
+./bin/zil export-lean examples/sshx11-vpn-system.zc
+./bin/zil export-lean examples/sshx11-vpn-system.zc /tmp/sshx11_bridge.lean Zil.Generated.SSHX11
 ```
 
 What this bridge emits:
@@ -100,13 +100,13 @@ Still not automated yet:
 
 | Formal Goal | Best Path | Command | Why this is best |
 |---|---|---|---|
-| Check model syntax/shape before formal work | ZIL `bundle-check` (`lts`) | `clojure -M -m zil.cli bundle-check models lts` | Fast structural gate before heavier verification steps. |
-| Validate invariant constraints early | ZIL `bundle-check` (`constraint`) | `clojure -M -m zil.cli bundle-check models constraint` | SMT catches inconsistent guard conditions up front. |
-| Keep TLA contract synchronized with model vocabulary | `export-tla` | `clojure -M -m zil.cli export-tla models/system.zc /tmp/system.tla ModuleName` | Single-source transition/state naming from `LTS_ATOM`. |
+| Check model syntax/shape before formal work | ZIL `bundle-check` (`lts`) | `./bin/zil bundle-check models lts` | Fast structural gate before heavier verification steps. |
+| Validate invariant constraints early | ZIL `bundle-check` (`constraint`) | `./bin/zil bundle-check models constraint` | SMT catches inconsistent guard conditions up front. |
+| Keep TLA contract synchronized with model vocabulary | `export-tla` | `./bin/zil export-tla models/system.zc /tmp/system.tla ModuleName` | Single-source transition/state naming from `LTS_ATOM`. |
 | Validate TLA data contract + extension index | extension-set verifier | `python3 tools/verification/verify_sshx11_extension_set_tla.py` | Confirms required TLA definitions and cross-module coverage. |
 | Run actual model checking on temporal contract | TLC run mode | `python3 tools/verification/verify_sshx11_extension_set_tla.py --run-tlc --tlc-target temporal` | Executes TLC instead of only schema/parse checks. |
 | Verify behavior-level trace conformance | Python+TLA hybrid verifier | `python3 tools/verification/verify_sshx11_fsm_python_tla.py --output verification_results/...json` | Replays canonical/alt/error traces with strict transition/gate checks. |
-| Bootstrap Lean formalization from same model | `export-lean` | `clojure -M -m zil.cli export-lean models/system.zc /tmp/system.lean Zil.Generated.System` | Generates consistent `State`/`Event`/`step` skeletons quickly. |
+| Bootstrap Lean formalization from same model | `export-lean` | `./bin/zil export-lean models/system.zc /tmp/system.lean Zil.Generated.System` | Generates consistent `State`/`Event`/`step` skeletons quickly. |
 | Typecheck generated Lean module immediately | Lean check | `cd verification/lean && lake env lean /tmp/system.lean` | Immediate guard against malformed generated terms. |
 | Continue with theorem proving on stable vocabulary | Lean authoring over generated skeletons | `lake env lean CAT_EPT/Networking/...` | Keeps proof effort focused on properties, not boilerplate FSM setup. |
 

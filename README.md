@@ -19,6 +19,8 @@ Architecture guide:
 
 - `docs/language-architecture.md`
 - `docs/language-design.md`
+- `docs/tooling-workflows.md`
+- `docs/vscode-wolfram-reuse-for-zil.md`
 - `spec/zil-v0.1r1.md`
 
 ## Repository Goals
@@ -89,6 +91,39 @@ Run a `.zc` file through the core engine:
 
 ```bash
 clojure -M -m zil.cli examples/it-infra-minimal.zc
+```
+
+## Standalone Runtime (No Clojure CLI Needed)
+
+Build once (requires Clojure tooling on build machine):
+
+```bash
+cd zil
+./bin/build-jar
+```
+
+Run anywhere with Java only:
+
+```bash
+cd zil
+./bin/zil examples/it-infra-minimal.zc
+./bin/zil bundle-check examples lts
+./bin/zil export-tla examples/sshx11-vpn-system.zc /tmp/sshx11_bridge.tla SSHX11BridgeFromZil
+java -jar dist/zil-standalone.jar bundle-check examples/quickstart-sshx11-beginner.zc lts
+```
+
+Notes:
+
+- `./bin/zil` prefers `dist/zil-standalone.jar` when present.
+- if jar is missing, it falls back to `clojure -M -m zil.cli`.
+- if neither Java+jar nor Clojure is available, it prints a build hint.
+
+SSHX11 + VS Code extension-host modeling example:
+
+```bash
+./bin/zil examples/sshx11-extension-vscode.zc
+./bin/zil bundle-check examples/sshx11-extension-vscode.zc lts
+./bin/zil bundle-check examples/sshx11-extension-vscode.zc constraint
 ```
 
 ## Native Macro System
@@ -237,17 +272,20 @@ clojure -M -m zil.cli export-lean examples/sshx11-vpn-system.zc /tmp/sshx11_brid
 
 ## Usage Comparison (Best Way By Goal)
 
+`./bin/zil` is the portable default command in this table. If you prefer direct
+Clojure invocation, replace `./bin/zil` with `clojure -M -m zil.cli`.
+
 | Goal | Best Zil Path | Command | Why this is best |
 |---|---|---|---|
-| Fast local modeling and query iteration | Execute `.zc` directly | `clojure -M -m zil.cli models/system.zc` | Fast feedback loop; no CI/policy overhead. |
-| Validate one bundle before sharing | `bundle-check` with target profile | `clojure -M -m zil.cli bundle-check models lts` | Confirms compile + profile presence + profile checks. |
-| Enforce strict per-commit model units in CI | `commit-check` | `clojure -M -m zil.cli commit-check changes lts` | Best for team governance and reviewable commit atoms. |
-| Mixed files but still unit-gated | Relaxed `commit-check` | `clojure -M -m zil.cli commit-check changes lts --allow-mixed` | Preserves one unit/file rule while allowing helper declarations. |
-| Constraint/invariant consistency | `constraint` profile | `clojure -M -m zil.cli bundle-check models constraint` | Uses SMT (Z3) to detect unsat policies early. |
-| Operational incident/state progression models | `LTS_ATOM` + `lts` checks | `clojure -M -m zil.cli bundle-check incidents lts` | Most direct fit for workflows and state transitions. |
-| Deterministic machine-atom exchange | `TM_ATOM` + `tm.det` checks | `clojure -M -m zil.cli commit-check units tm.det` | Strong unit completeness contract. |
-| Formal spec alignment with TLA+ | `export-tla` from same LTS vocabulary | `clojure -M -m zil.cli export-tla models/sshx11.zc /tmp/model.tla ModuleName` | Keeps transitions and names synchronized with model files. |
-| Lean4 implementation/proof bootstrap | `export-lean` from same LTS vocabulary | `clojure -M -m zil.cli export-lean models/sshx11.zc /tmp/model.lean Zil.Generated.SSHX11` | Generates `State`/`Event`/`step` skeletons quickly and consistently. |
+| Fast local modeling and query iteration | Execute `.zc` directly | `./bin/zil models/system.zc` | Fast feedback loop; no CI/policy overhead. |
+| Validate one bundle before sharing | `bundle-check` with target profile | `./bin/zil bundle-check models lts` | Confirms compile + profile presence + profile checks. |
+| Enforce strict per-commit model units in CI | `commit-check` | `./bin/zil commit-check changes lts` | Best for team governance and reviewable commit atoms. |
+| Mixed files but still unit-gated | Relaxed `commit-check` | `./bin/zil commit-check changes lts --allow-mixed` | Preserves one unit/file rule while allowing helper declarations. |
+| Constraint/invariant consistency | `constraint` profile | `./bin/zil bundle-check models constraint` | Uses SMT (Z3) to detect unsat policies early. |
+| Operational incident/state progression models | `LTS_ATOM` + `lts` checks | `./bin/zil bundle-check incidents lts` | Most direct fit for workflows and state transitions. |
+| Deterministic machine-atom exchange | `TM_ATOM` + `tm.det` checks | `./bin/zil commit-check units tm.det` | Strong unit completeness contract. |
+| Formal spec alignment with TLA+ | `export-tla` from same LTS vocabulary | `./bin/zil export-tla models/sshx11.zc /tmp/model.tla ModuleName` | Keeps transitions and names synchronized with model files. |
+| Lean4 implementation/proof bootstrap | `export-lean` from same LTS vocabulary | `./bin/zil export-lean models/sshx11.zc /tmp/model.lean Zil.Generated.SSHX11` | Generates `State`/`Event`/`step` skeletons quickly and consistently. |
 | Live telemetry-driven model updates | `DATASOURCE` + ingest pollers | Runtime API: `start-all-pollers!` with `poll_mode=interval` | Best for continuous observation pipelines. |
 
 Recommended default for teams:
