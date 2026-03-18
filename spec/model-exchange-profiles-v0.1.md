@@ -31,6 +31,7 @@ This profile spec separates concerns:
 - intended use: invariants, guardrails, and consistency conditions
 - execution check: SMT-backed (Z3)
 - condition syntax: arithmetic/boolean infix expression, e.g. `x > 10 AND y <= 3`
+- implication is supported as `IMPLIES`, `->`, or `=>`, e.g. `x > 0 IMPLIES y > 0`
 
 ## Bundle Policy
 

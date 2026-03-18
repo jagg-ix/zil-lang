@@ -5,6 +5,7 @@
             [zil.bridge.tla :as bt]
             [zil.bridge.theorem :as bth]
             [zil.bridge.theorem-ci :as btci]
+            [zil.bridge.theorem-dsl-ci :as btdsl]
             [zil.core :as core]
             [zil.import.hcl :as ih]
             [zil.model-exchange :as mx]
@@ -19,6 +20,7 @@
         a4 (nth cmd-args 2 nil)
         a5 (nth cmd-args 3 nil)
         a6 (nth cmd-args 4 nil)
+        a7 (nth cmd-args 5 nil)
         [profile strict-units-only?]
         (cond
           (= a3 "--allow-mixed") [nil false]
@@ -40,6 +42,7 @@
           (println "  ./bin/zil export-lean <file-or-dir> [output.lean] [namespace]")
           (println "  ./bin/zil theorem-bridge <file-or-dir> [output.zc] [module_name]")
           (println "  ./bin/zil theorem-ci <file-or-dir> [out_dir] [bridge_module] [tla_module] [lean_namespace]")
+          (println "  ./bin/zil theorem-dsl-ci <model.zc> [out_dir] [bridge_module] [tla_module] [lean_namespace] [summary_json]")
           (println "  ./bin/zil import-hcl <file-or-dir> [output.zc] [module_name]")
           (println "  ./bin/zil preprocess <model.zc> [output.zc] [lib_dir]")
           (println "")
@@ -50,6 +53,7 @@
           (println "  clojure -M -m zil.cli export-lean <file-or-dir> [output.lean] [namespace]")
           (println "  clojure -M -m zil.cli theorem-bridge <file-or-dir> [output.zc] [module_name]")
           (println "  clojure -M -m zil.cli theorem-ci <file-or-dir> [out_dir] [bridge_module] [tla_module] [lean_namespace]")
+          (println "  clojure -M -m zil.cli theorem-dsl-ci <model.zc> [out_dir] [bridge_module] [tla_module] [lean_namespace] [summary_json]")
           (println "  clojure -M -m zil.cli import-hcl <file-or-dir> [output.zc] [module_name]")
           (println "  clojure -M -m zil.cli preprocess <model.zc> [output.zc] [lib_dir]"))
         (System/exit 2))
@@ -168,6 +172,32 @@
                        tla-module (assoc :tla-module tla-module)
                        lean-namespace (assoc :lean-namespace lean-namespace))
                 report (btci/run-theorem-ci arg opts)]
+            (pp/pprint report))
+          (catch clojure.lang.ExceptionInfo e
+            (binding [*out* *err*]
+              (println (.getMessage e))
+              (pp/pprint (ex-data e)))
+            (System/exit 2))))
+
+      (= cmd "theorem-dsl-ci")
+      (do
+        (when-not arg
+          (binding [*out* *err*]
+            (println "Missing model path for theorem-dsl-ci"))
+          (System/exit 2))
+        (try
+          (let [out-dir (when (and a3 (not= a3 "-")) a3)
+                bridge-module (when (and a4 (not= a4 "-")) a4)
+                tla-module (when (and a5 (not= a5 "-")) a5)
+                lean-namespace (when (and a6 (not= a6 "-")) a6)
+                summary-json (when (and a7 (not= a7 "-")) a7)
+                opts (cond-> {}
+                       out-dir (assoc :out-dir out-dir)
+                       bridge-module (assoc :bridge-module bridge-module)
+                       tla-module (assoc :tla-module tla-module)
+                       lean-namespace (assoc :lean-namespace lean-namespace)
+                       summary-json (assoc :summary-json summary-json))
+                report (btdsl/run-theorem-dsl-ci arg opts)]
             (pp/pprint report))
           (catch clojure.lang.ExceptionInfo e
             (binding [*out* *err*]

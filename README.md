@@ -29,6 +29,7 @@ Architecture guide:
 - `docs/request-form-modeling.md`
 - `docs/rbac-dac-macro-layer.md`
 - `docs/theorem-impact-macro-layer.md`
+- `docs/theorem-dsl-ci-workflow.md`
 - `docs/vscode-wolfram-reuse-for-zil.md`
 - `spec/zil-v0.1r1.md`
 
@@ -390,6 +391,12 @@ Theorem incident CI (one-shot: bridge + checks + TLA/Lean exports):
 
 ```bash
 clojure -M -m zil.cli theorem-ci examples/theorem-impact-devops-sre.zc /tmp theorem.bridge.generated TheoremBridgeFromZil Zil.Generated.TheoremBridge
+```
+
+Theorem DSL CI (macro DSL + operator summary JSON + formal exports):
+
+```bash
+clojure -M -m zil.cli theorem-dsl-ci examples/theorem-dsl-incident.zc /tmp
 ```
 
 ## Usage Comparison (Best Way By Goal)

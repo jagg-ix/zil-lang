@@ -25,6 +25,8 @@
   (let [n (count s)
         two-char-ops {"&&" :and
                       "||" :or
+                      "->" :implies
+                      "=>" :implies
                       ">=" :>=
                       "<=" :<=
                       "==" :=
@@ -83,6 +85,7 @@
                         (= low "and") {:type :op :value :and :raw raw}
                         (= low "or") {:type :op :value :or :raw raw}
                         (= low "not") {:type :op :value :not :raw raw}
+                        (= low "implies") {:type :op :value :implies :raw raw}
                         :else {:type :ident :value raw :raw raw})]
               (recur j (conj out tok)))
 
@@ -179,9 +182,20 @@
   [tokens i]
   (parse-left-assoc tokens i parse-and #{:or}))
 
+(defn- parse-implies
+  "Parse right-associative implication:
+   a IMPLIES b IMPLIES c  ==  a IMPLIES (b IMPLIES c)."
+  [tokens i]
+  (let [[left j] (parse-or tokens i)
+        t (token-at tokens j)]
+    (if (and (= :op (:type t)) (= :implies (:value t)))
+      (let [[right k] (parse-implies tokens (inc j))]
+        [{:kind :op :op :implies :args [left right]} k])
+      [left j])))
+
 (defn parse-expr
   [tokens i]
-  (parse-or tokens i))
+  (parse-implies tokens i))
 
 (defn parse-condition
   [condition]
@@ -294,6 +308,7 @@
         :!= (infer-eq op args env expected)
         :and (infer-binary-bool op args env expected)
         :or (infer-binary-bool op args env expected)
+        :implies (infer-binary-bool op args env expected)
         (throw (ex-info "Unsupported condition operator for SMT"
                         {:op op}))))
 
@@ -365,6 +380,7 @@
             :!= (str "(not (= " e1 " " e2 "))")
             :and (str "(and " e1 " " e2 ")")
             :or (str "(or " e1 " " e2 ")")
+            :implies (str "(=> " e1 " " e2 ")")
             (throw (ex-info "Unsupported operator while emitting SMT"
                             {:op op}))))
     (throw (ex-info "Unknown AST node while emitting SMT"

@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [run-tests]]
             [zil.bridge-lean4-test]
             [zil.bridge-theorem-ci-test]
+            [zil.bridge-theorem-dsl-ci-test]
             [zil.bridge-theorem-test]
             [zil.bridge-tla-test]
             [zil.core-test]
@@ -17,6 +18,7 @@
   [& _]
   (let [{:keys [fail error]} (run-tests 'zil.bridge-lean4-test
                                         'zil.bridge-theorem-ci-test
+                                        'zil.bridge-theorem-dsl-ci-test
                                         'zil.bridge-theorem-test
                                         'zil.bridge-tla-test
                                         'zil.core-test

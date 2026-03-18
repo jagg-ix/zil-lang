@@ -6,7 +6,9 @@
   - tuple-fact and causal-edge transaction mappers,
   - snapshot extraction at a revision frontier,
   - causal order helpers via recursive Datalog rules."
-  (:require [datascript.core :as d]))
+  (:require [clojure.set :as cset]
+            [clojure.string :as str]
+            [datascript.core :as d]))
 
 (def zil-schema
   "DataScript schema used by the draft runtime profile.
@@ -164,3 +166,60 @@
   "Pass-through query helper."
   [query db & inputs]
   (apply d/q query db inputs))
+
+(defn- normalize-vc-counter
+  [v]
+  (cond
+    (integer? v) (long v)
+    (number? v) (long v)
+    (string? v) (Long/parseLong (str/trim v))
+    :else (throw (ex-info "Vector clock counter must be numeric"
+                          {:value v}))))
+
+(defn normalize-vector-clock
+  "Normalize vector-clock maps into {actor-string -> long-counter}."
+  [vc]
+  (when-not (map? vc)
+    (throw (ex-info "Vector clock must be a map" {:value vc})))
+  (reduce-kv
+   (fn [out k v]
+     (let [actor (cond
+                   (keyword? k) (name k)
+                   (string? k) k
+                   :else (str k))]
+       (assoc out actor (normalize-vc-counter v))))
+   {}
+   vc))
+
+(defn vector-clock-before?
+  "True iff vc-left happens-before vc-right under vector-clock ordering."
+  [vc-left vc-right]
+  (let [l (normalize-vector-clock vc-left)
+        r (normalize-vector-clock vc-right)
+        actors (cset/union (set (keys l)) (set (keys r)))
+        non-greater? (every? (fn [a] (<= (get l a 0) (get r a 0))) actors)
+        strictly-smaller? (some (fn [a] (< (get l a 0) (get r a 0))) actors)]
+    (and non-greater? (boolean strictly-smaller?))))
+
+(defn vector-clock-concurrent?
+  "True iff vector clocks are incomparable in either direction."
+  [vc-a vc-b]
+  (and (not (vector-clock-before? vc-a vc-b))
+       (not (vector-clock-before? vc-b vc-a))))
+
+(defn derive-before-edges-from-vector-clocks
+  "Derive causal edges from event+vector-clock records.
+
+  Input records shape:
+  {:event :event_key
+   :vector_clock {\"actorA\" 2 \"actorB\" 1}}"
+  [events]
+  (->> (for [{le :event lvc :vector_clock} events
+             {re :event rvc :vector_clock} events
+             :when (and (keyword? le)
+                        (keyword? re)
+                        (not= le re)
+                        (vector-clock-before? lvc rvc))]
+         {:left le :right re})
+       distinct
+       vec))

@@ -78,6 +78,26 @@ POLICY bad [condition=\"x > 0 AND x < 0\", criticality=high].
          (is (false? (:ok unsat-report)))
          (is (some #(= :solver (:type %)) (:errors unsat-report))))))))
 
+(deftest constraint-profile-solver-supports-implies-test
+  (with-z3
+   (fn []
+     (let [dir (tmp-dir)
+           sat-file (java.io.File. dir "implies-sat.zc")
+           unsat-file (java.io.File. dir "implies-unsat.zc")]
+       (spit sat-file "MODULE c.impl.sat.
+POLICY p1 [condition=\"x > 0 IMPLIES y > 0\", criticality=high].
+")
+       (spit unsat-file "MODULE c.impl.unsat.
+POLICY p1 [condition=\"x > 0 IMPLIES y > 0\", criticality=high].
+POLICY p2 [condition=\"x > 0\", criticality=high].
+POLICY p3 [condition=\"y < 0\", criticality=high].
+")
+       (let [sat-report (mx/check-bundle (.getAbsolutePath sat-file) {:profile :constraint})
+             unsat-report (mx/check-bundle (.getAbsolutePath unsat-file) {:profile :constraint})]
+         (is (:ok sat-report))
+         (is (false? (:ok unsat-report)))
+         (is (some #(= :solver (:type %)) (:errors unsat-report))))))))
+
 (deftest constraint-profile-solver-detects-joint-conflicts-test
   (with-z3
    (fn []

@@ -37,16 +37,27 @@ TLM concept to ZIL macro mapping:
 Use:
 
 - `examples/tlm-domain-macros.zc`
+- `examples/sshx11-tlm-catalog.zc` (catalog-scale macro composition)
 
 Run:
 
 ```bash
 cd zil
 ./bin/zil examples/tlm-domain-macros.zc
+./bin/zil examples/sshx11-tlm-catalog.zc
 ```
 
 This example is macro-domain focused and does not include `LTS_ATOM` or
 `POLICY` declarations, so profile checks are intentionally not required here.
+
+The SSHX11 catalog file demonstrates higher-level macro bundling:
+
+- `SSHX11_COMPONENTS()`
+- `SSHX11_TIMING_PROFILES()`
+- `SSHX11_CHANNELS()`
+- `SSHX11_CATALOG_TX20()` (instantiates the 20 transactions)
+- `SSHX11_FORMAL_LTS()`
+- `SSHX11_POLICIES()`
 
 ## Formal backend overlay (Z3 / TLA+ / Lean4)
 

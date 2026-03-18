@@ -1,5 +1,6 @@
 (ns zil.runtime-ingest-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [clojure.data.json :as json]
+            [clojure.test :refer [deftest is]]
             [zil.core :as core]
             [zil.runtime.adapters.core :as ac]
             [zil.runtime.datascript :as zr]
@@ -89,3 +90,52 @@ DATASOURCE live [type=rest, url=\"" url "\", format=json, poll_mode=interval, po
         (is (>= (long (get-in latest [:attrs :value])) 2)))
       (finally
         (.stop ^HttpServer server 0)))))
+
+(deftest cucumber-adapter-derives-causality-test
+  (let [tmp (java.io.File/createTempFile "zil-cucumber" ".json")
+        _ (.deleteOnExit tmp)
+        payload
+        [{:uri "features/auth.feature"
+          :id "auth_feature"
+          :name "Auth feature"
+          :elements [{:id "login_ok"
+                      :type "scenario"
+                      :name "Login ok"
+                      :steps [{:keyword "Given " :name "user opens page" :result {:status "passed" :duration 1000}}
+                              {:keyword "When " :name "user enters password" :result {:status "passed" :duration 1200}}
+                              {:keyword "Then " :name "dashboard is shown" :result {:status "passed" :duration 1400}}]}]}]
+        _ (spit tmp (json/write-str payload))
+        path (.getAbsolutePath tmp)
+        program (str "MODULE cucumber.demo.
+DATASOURCE cuc_run [type=cucumber, path=\"" path "\"].
+")
+        compiled (core/compile-program program)
+        conn (zr/make-conn)
+        summary (ingest/ingest-all! conn compiled {:revision 42})
+        by-src (first (:by_source summary))
+        db @conn
+        edges (zr/q '[:find ?l ?r
+                      :where
+                      [?e :zil/event-left ?l]
+                      [?e :zil/event-right ?r]]
+                    db)
+        vc-facts (zr/q '[:find ?event ?actor ?counter
+                         :where
+                         [?e :zil/object ?event]
+                         [?e :zil/relation :vc_component]
+                         [?e :zil/subject ?actor]
+                         [?e :zil/attrs ?attrs]
+                         [(get ?attrs :counter) ?counter]]
+                       db)
+        edge-events (set (map first edges))
+        edge-targets (set (map second edges))]
+    (is (= "datasource:cuc_run" (:datasource by-src)))
+    (is (= :cucumber (:type by-src)))
+    (is (= 3 (:records by-src)))
+    (is (= 3 (:before_edges by-src)))
+    (is (= 2 (:before_edges_explicit by-src)))
+    (is (= 3 (:before_edges_derived by-src)))
+    (is (= 3 (count vc-facts)))
+    (is (= 3 (count edges)))
+    (is (= 2 (count edge-events)))
+    (is (= 2 (count edge-targets)))))

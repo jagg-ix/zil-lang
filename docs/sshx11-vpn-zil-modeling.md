@@ -18,6 +18,7 @@ Reference architecture details in this repo:
 - `examples/sshx11-vpn-system.zc`
 - `examples/sshx11-extension-vscode.zc`
 - `examples/sshx11-user-service-api.zc`
+- `docs/sshx11-tlm-transaction-catalog.md`
 
 `sshx11-vpn-system.zc` encodes:
 

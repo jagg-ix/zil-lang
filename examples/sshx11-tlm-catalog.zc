@@ -1,0 +1,251 @@
+MODULE sshx11.tlm.catalog.
+
+// Runnable catalog model for SSHX11 TLM:
+// - 20 transaction types instantiated via macro wrappers
+// - profile checks:
+//     ./bin/zil bundle-check examples/sshx11-tlm-catalog.zc lts
+//     ./bin/zil bundle-check examples/sshx11-tlm-catalog.zc constraint
+// - export bridge:
+//     ./bin/zil export-tla examples/sshx11-tlm-catalog.zc /tmp/sshx11_tlm_catalog.tla SSHX11TLMCatalog
+//     ./bin/zil export-lean examples/sshx11-tlm-catalog.zc /tmp/sshx11_tlm_catalog.lean Zil.Generated.SSHX11TLM
+
+// ------------------------------------------------------------------
+// TLM macro layer (extended for high-leverage catalog instantiation)
+// ------------------------------------------------------------------
+
+MACRO TLM_COMPONENT(name, role):
+EMIT tlm:component:{{name}}#kind@entity:tlm_component.
+EMIT tlm:component:{{name}}#role@value:{{role}}.
+ENDMACRO.
+
+MACRO TLM_TIMING_PROFILE(name, level, quantum_ns):
+EMIT tlm:timing:{{name}}#kind@entity:tlm_timing_profile.
+EMIT tlm:timing:{{name}}#level@value:{{level}}.
+EMIT tlm:timing:{{name}}#quantum_ns@value:{{quantum_ns}}.
+ENDMACRO.
+
+MACRO TLM_CHANNEL(name, src, dst, timing_profile):
+EMIT tlm:channel:{{name}}#kind@entity:tlm_channel.
+EMIT tlm:channel:{{name}}#from@tlm:component:{{src}}.
+EMIT tlm:channel:{{name}}#to@tlm:component:{{dst}}.
+EMIT tlm:channel:{{name}}#timing_profile@tlm:timing:{{timing_profile}}.
+ENDMACRO.
+
+MACRO TLM_TX(seq, tx, cmd, src, dst, channel, payload, size, priority, timing_level, tx_class, gate):
+EMIT tlm:tx:{{tx}}#kind@entity:tlm_transaction.
+EMIT tlm:tx:{{tx}}#catalog_index@value:{{seq}}.
+EMIT tlm:tx:{{tx}}#command@value:{{cmd}}.
+EMIT tlm:tx:{{tx}}#source@tlm:component:{{src}}.
+EMIT tlm:tx:{{tx}}#destination@tlm:component:{{dst}}.
+EMIT tlm:tx:{{tx}}#via@tlm:channel:{{channel}}.
+EMIT tlm:tx:{{tx}}#payload@value:{{payload}}.
+EMIT tlm:tx:{{tx}}#size@value:{{size}}.
+EMIT tlm:tx:{{tx}}#priority@value:{{priority}}.
+EMIT tlm:tx:{{tx}}#timing_level@value:{{timing_level}}.
+EMIT tlm:tx:{{tx}}#class@value:{{tx_class}}.
+EMIT tlm:tx:{{tx}}#guard@value:{{gate}}.
+EMIT tlm:tx:{{tx}}#status@value:issued.
+EMIT tlm:tx:{{tx}}#status@value:accepted.
+ENDMACRO.
+
+MACRO TX_CONTROL(seq, tx, cmd, src, dst, channel, payload, gate):
+EMIT USE TLM_TX({{seq}}, {{tx}}, {{cmd}}, {{src}}, {{dst}}, {{channel}}, {{payload}}, 64, high, loosely_timed, control, {{gate}}).
+ENDMACRO.
+
+MACRO TX_INTERACTIVE(seq, tx, cmd, src, dst, channel, payload, gate):
+EMIT USE TLM_TX({{seq}}, {{tx}}, {{cmd}}, {{src}}, {{dst}}, {{channel}}, {{payload}}, 128, high, approximately_timed, interactive, {{gate}}).
+ENDMACRO.
+
+MACRO TX_FILESYNC(seq, tx, cmd, src, dst, channel, payload, gate):
+EMIT USE TLM_TX({{seq}}, {{tx}}, {{cmd}}, {{src}}, {{dst}}, {{channel}}, {{payload}}, 4096, medium, approximately_timed, file_sync, {{gate}}).
+ENDMACRO.
+
+MACRO TX_ROUTING(seq, tx, cmd, src, dst, channel, payload, gate):
+EMIT USE TLM_TX({{seq}}, {{tx}}, {{cmd}}, {{src}}, {{dst}}, {{channel}}, {{payload}}, 96, high, loosely_timed, routing, {{gate}}).
+ENDMACRO.
+
+MACRO TX_RECOVERY(seq, tx, cmd, src, dst, channel, payload, gate):
+EMIT USE TLM_TX({{seq}}, {{tx}}, {{cmd}}, {{src}}, {{dst}}, {{channel}}, {{payload}}, 80, high, loosely_timed, recovery, {{gate}}).
+ENDMACRO.
+
+MACRO SSHX11_COMPONENTS():
+EMIT USE TLM_COMPONENT(local_workstation, initiator).
+EMIT USE TLM_COMPONENT(operator_client, initiator).
+EMIT USE TLM_COMPONENT(observer_client, observer).
+EMIT USE TLM_COMPONENT(control_plane, coordinator).
+EMIT USE TLM_COMPONENT(data_plane, processor).
+EMIT USE TLM_COMPONENT(ssh_tunnel, transport).
+EMIT USE TLM_COMPONENT(x11_proxy, graphics_bridge).
+EMIT USE TLM_COMPONENT(websocket_bridge, ws_bridge).
+EMIT USE TLM_COMPONENT(vpn_overlay, network_overlay).
+EMIT USE TLM_COMPONENT(reverse_socks, fallback_router).
+EMIT USE TLM_COMPONENT(webdav_gateway, file_gateway).
+EMIT USE TLM_COMPONENT(vscode_extension, extension_client).
+EMIT USE TLM_COMPONENT(degraded_agent, degraded_node).
+ENDMACRO.
+
+MACRO SSHX11_TIMING_PROFILES():
+EMIT USE TLM_TIMING_PROFILE(control_lt, loosely_timed, 12000).
+EMIT USE TLM_TIMING_PROFILE(route_lt, loosely_timed, 15000).
+EMIT USE TLM_TIMING_PROFILE(recovery_lt, loosely_timed, 20000).
+EMIT USE TLM_TIMING_PROFILE(interactive_at, approximately_timed, 1000).
+EMIT USE TLM_TIMING_PROFILE(file_at, approximately_timed, 5000).
+ENDMACRO.
+
+MACRO SSHX11_CHANNELS():
+EMIT USE TLM_CHANNEL(ch_local_ssh, local_workstation, ssh_tunnel, control_lt).
+EMIT USE TLM_CHANNEL(ch_ssh_control, ssh_tunnel, control_plane, control_lt).
+EMIT USE TLM_CHANNEL(ch_control_data, control_plane, data_plane, control_lt).
+EMIT USE TLM_CHANNEL(ch_control_x11, control_plane, x11_proxy, control_lt).
+EMIT USE TLM_CHANNEL(ch_x11_control, x11_proxy, control_plane, control_lt).
+EMIT USE TLM_CHANNEL(ch_control_ssh, control_plane, ssh_tunnel, control_lt).
+EMIT USE TLM_CHANNEL(ch_operator_ws, operator_client, websocket_bridge, interactive_at).
+EMIT USE TLM_CHANNEL(ch_ws_operator, websocket_bridge, operator_client, interactive_at).
+EMIT USE TLM_CHANNEL(ch_x11_ws, x11_proxy, websocket_bridge, interactive_at).
+EMIT USE TLM_CHANNEL(ch_ws_x11, websocket_bridge, x11_proxy, interactive_at).
+EMIT USE TLM_CHANNEL(ch_operator_data, operator_client, data_plane, interactive_at).
+EMIT USE TLM_CHANNEL(ch_data_operator, data_plane, operator_client, interactive_at).
+EMIT USE TLM_CHANNEL(ch_extension_webdav, vscode_extension, webdav_gateway, file_at).
+EMIT USE TLM_CHANNEL(ch_webdav_extension, webdav_gateway, vscode_extension, file_at).
+EMIT USE TLM_CHANNEL(ch_vpn_ssh, vpn_overlay, ssh_tunnel, route_lt).
+EMIT USE TLM_CHANNEL(ch_rsocks_ssh, reverse_socks, ssh_tunnel, route_lt).
+EMIT USE TLM_CHANNEL(ch_observer_control, observer_client, control_plane, control_lt).
+EMIT USE TLM_CHANNEL(ch_degraded_control, degraded_agent, control_plane, recovery_lt).
+ENDMACRO.
+
+MACRO SSHX11_CATALOG_TX20():
+EMIT USE TX_CONTROL(1, tx_control_connect, control_connect, local_workstation, ssh_tunnel, ch_local_ssh, endpoint_port_profile, relay_gate).
+EMIT USE TX_CONTROL(2, tx_host_key_verify, host_key_verify, ssh_tunnel, control_plane, ch_ssh_control, host_fingerprint_trust_policy, relay_gate).
+EMIT USE TX_CONTROL(3, tx_user_auth, user_auth, local_workstation, ssh_tunnel, ch_local_ssh, auth_method_actor_token, relay_gate).
+EMIT USE TX_CONTROL(4, tx_session_channel_open, session_channel_open, control_plane, data_plane, ch_control_data, session_id_channel_set, relay_gate).
+EMIT USE TX_CONTROL(5, tx_x11_forward_enable, x11_forward_enable, control_plane, x11_proxy, ch_control_x11, display_id_forward_mode, relay_gate).
+EMIT USE TX_CONTROL(6, tx_xauth_cookie_sync, xauth_cookie_sync, x11_proxy, control_plane, ch_x11_control, cookie_id_cookie_scope, relay_gate).
+EMIT USE TX_CONTROL(7, tx_keepalive_ping, keepalive_ping, control_plane, ssh_tunnel, ch_control_ssh, seq_ttl_timeout_hint, relay_gate).
+EMIT USE TX_INTERACTIVE(8, tx_terminal_input, terminal_input, operator_client, websocket_bridge, ch_operator_ws, key_input_frame, relay_gate).
+EMIT USE TX_INTERACTIVE(9, tx_terminal_output, terminal_output, websocket_bridge, operator_client, ch_ws_operator, output_frame_chunk, relay_gate).
+EMIT USE TX_INTERACTIVE(10, tx_x11_frame_push, x11_frame_push, x11_proxy, websocket_bridge, ch_x11_ws, frame_delta_region_bounds, buffer_sync_gate).
+EMIT USE TX_INTERACTIVE(11, tx_x11_event_pull, x11_event_pull, websocket_bridge, x11_proxy, ch_ws_x11, pointer_key_event_batch, relay_gate).
+EMIT USE TX_INTERACTIVE(12, tx_clipboard_push, clipboard_push, operator_client, data_plane, ch_operator_data, mime_bytes_checksum, relay_gate).
+EMIT USE TX_INTERACTIVE(13, tx_clipboard_pull, clipboard_pull, data_plane, operator_client, ch_data_operator, mime_bytes_checksum, relay_gate).
+EMIT USE TX_FILESYNC(14, tx_webdav_list, webdav_list, vscode_extension, webdav_gateway, ch_extension_webdav, path_filter_depth, webdav_gate).
+EMIT USE TX_FILESYNC(15, tx_webdav_chunk_write, webdav_chunk_write, vscode_extension, webdav_gateway, ch_extension_webdav, path_offset_chunk_hash, webdav_gate).
+EMIT USE TX_FILESYNC(16, tx_webdav_chunk_read, webdav_chunk_read, webdav_gateway, vscode_extension, ch_webdav_extension, path_offset_chunk_hash, webdav_gate).
+EMIT USE TX_ROUTING(17, tx_vpn_route_program, vpn_route_program, vpn_overlay, ssh_tunnel, ch_vpn_ssh, route_table_delta_mtu_profile, relay_gate).
+EMIT USE TX_ROUTING(18, tx_reverse_socks_open, reverse_socks_open, reverse_socks, ssh_tunnel, ch_rsocks_ssh, bind_address_relay_policy, reverse_socks_gate).
+EMIT USE TX_CONTROL(19, tx_control_takeover, control_takeover, observer_client, control_plane, ch_observer_control, request_id_role_target, control_takeover_gate).
+EMIT USE TX_RECOVERY(20, tx_recovery_reconnect, recovery_reconnect, degraded_agent, control_plane, ch_degraded_control, cause_code_retry_budget, retry_gate).
+ENDMACRO.
+
+MACRO SSHX11_FORMAL_LTS():
+EMIT LTS_ATOM sshx11_control_flow [actor=SSHX11Control, actor_key=sshx11Control, states=#{idle ssh_connected cookies_ready ws_ready l3_ready relay_enabled degraded}, initial=idle, transitions={[idle ssh_login] [ssh_connected], [ssh_connected prepare_cookies] [cookies_ready], [cookies_ready websocket_online] [ws_ready], [ws_ready set_l3_ready] [l3_ready], [l3_ready enable_relay] [relay_enabled], [relay_enabled transport_failure] [degraded], [degraded recover_transport] [l3_ready]}].
+EMIT LTS_ATOM sshx11_extension_flow [actor=SSHX11Extension, actor_key=sshx11Extension, states=#{idle control_ready transport_ready profile_applied reverse_socks_ready extension_host_verified degraded}, initial=idle, transitions={[idle service_start] [control_ready], [control_ready transport_up] [transport_ready], [transport_ready apply_profile] [profile_applied], [profile_applied reverse_socks_start] [reverse_socks_ready], [reverse_socks_ready verify_extension_hosts] [extension_host_verified], [extension_host_verified transport_failure] [degraded], [degraded recover_transport] [transport_ready]}].
+EMIT LTS_ATOM sshx11_user_service_flow [actor=SSHX11UserService, actor_key=sshx11UserService, states=#{stopped starting ready degraded}, initial=stopped, transitions={[stopped start_daemon] [starting], [starting health_ok] [ready], [ready command_error] [degraded], [degraded recover] [ready], [ready stop_daemon] [stopped]}].
+ENDMACRO.
+
+MACRO SSHX11_POLICIES():
+EMIT POLICY relay_gate [condition="ssh_forward_mode_x AND mit_cookie_generated AND websocket_ready AND l3_ready AND relay_enabled", criticality=high].
+EMIT POLICY buffer_sync_gate [condition="ssh_buffer_kb = x11_buffer_kb AND x11_buffer_kb = ws_buffer_kb AND ssh_buffer_kb >= 1", criticality=high].
+EMIT POLICY reverse_socks_gate [condition="(NOT reverse_socks_required) OR reverse_socks_reachable", criticality=high].
+EMIT POLICY webdav_gate [condition="(NOT webdav_required) OR webdav_alive", criticality=low].
+EMIT POLICY control_takeover_gate [condition="(NOT takeover_requested) OR (participant_present AND control_grant_enabled)", criticality=high].
+EMIT POLICY retry_gate [condition="retry_count >= 0 AND retry_count <= retry_budget AND retry_budget >= 1", criticality=high].
+EMIT POLICY latency_guard [condition="latency_ms >= 0 AND latency_ms <= 5000", criticality=high].
+ENDMACRO.
+
+// -----------------
+// TLM participants
+// -----------------
+
+USE SSHX11_COMPONENTS().
+
+// --------------
+// Timing classes
+// --------------
+
+USE SSHX11_TIMING_PROFILES().
+
+// --------------------
+// Channels (directional)
+// --------------------
+
+USE SSHX11_CHANNELS().
+
+// --------------------------------------
+// SSHX11 TLM transaction catalog (20/20)
+// --------------------------------------
+
+USE SSHX11_CATALOG_TX20().
+
+// -----------------------------
+// Derived labels and consistency
+// -----------------------------
+
+RULE route_guarded_tx:
+IF ?tx#guard@value:reverse_socks_gate
+THEN ?tx#guard_domain@value:routing.
+
+RULE webdav_guarded_tx:
+IF ?tx#guard@value:webdav_gate
+THEN ?tx#guard_domain@value:file_sync.
+
+RULE relay_guarded_tx:
+IF ?tx#guard@value:relay_gate
+THEN ?tx#guard_domain@value:interactive.
+
+RULE approximate_timing_bucket:
+IF ?tx#timing_level@value:approximately_timed
+THEN ?tx#timing_bucket@value:coarse.
+
+RULE loose_timing_bucket:
+IF ?tx#timing_level@value:loosely_timed
+THEN ?tx#timing_bucket@value:coarse.
+
+// ------------------------------------------
+// Formal profile declarations (LTS + policies)
+// ------------------------------------------
+
+USE SSHX11_FORMAL_LTS().
+USE SSHX11_POLICIES().
+
+// -------
+// Queries
+// -------
+
+QUERY all_transactions:
+FIND ?tx WHERE ?tx#kind@entity:tlm_transaction.
+
+QUERY catalog_indices:
+FIND ?i WHERE ?tx#catalog_index@?i.
+
+QUERY tx_commands:
+FIND ?cmd WHERE ?tx#command@?cmd.
+
+QUERY control_transactions:
+FIND ?tx WHERE ?tx#class@value:control.
+
+QUERY interactive_transactions:
+FIND ?tx WHERE ?tx#class@value:interactive.
+
+QUERY file_sync_transactions:
+FIND ?tx WHERE ?tx#class@value:file_sync.
+
+QUERY routing_transactions:
+FIND ?tx WHERE ?tx#class@value:routing.
+
+QUERY recovery_transactions:
+FIND ?tx WHERE ?tx#class@value:recovery.
+
+QUERY reverse_socks_guarded:
+FIND ?tx WHERE ?tx#guard@value:reverse_socks_gate.
+
+QUERY webdav_guarded:
+FIND ?tx WHERE ?tx#guard@value:webdav_gate.
+
+QUERY accepted_transactions:
+FIND ?tx WHERE ?tx#status@value:accepted.
+
+QUERY lts_edges:
+FIND ?e WHERE lts_atom:sshx11_control_flow#edge@?e.
+
+QUERY policy_entities:
+FIND ?p WHERE ?p#kind@entity:policy.

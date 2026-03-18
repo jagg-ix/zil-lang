@@ -6,7 +6,7 @@ ZIL is a **general-purpose declarative modeling language**.
 
 It is not limited to one IT stack or one product family. The current repository
 includes an IT-oriented standard declaration set (`SERVICE`, `HOST`,
-`DATASOURCE`, etc.) because that is the primary immediate use case, but those
+`DATASOURCE`, `PROVIDER`, etc.) because that is the primary immediate use case, but those
 declarations are layered above a domain-agnostic core.
 
 ## What Is Core vs Domain-Specific
@@ -21,7 +21,7 @@ Core language (domain-agnostic):
 
 Domain libraries (domain-specific, optional):
 
-- IT declarations like `SERVICE`, `HOST`, `DATASOURCE`, `METRIC`, `POLICY`
+- IT declarations like `SERVICE`, `HOST`, `DATASOURCE`, `METRIC`, `POLICY`, `PROVIDER`
 - model-exchange units (`TM_ATOM`, `LTS_ATOM`)
 - future domain packs (for example finance, supply-chain, incident management)
 

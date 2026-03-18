@@ -37,18 +37,22 @@ Domain library macro examples:
 
 - `docs/domain-library-macros.md`
 - `examples/domain-library-macros.zc`
+- `docs/tlm-macro-layer.md`
+- `examples/tlm-domain-macros.zc`
+- `examples/tlm-formal-bridge.zc`
 
 ## Standard Library Declarations
 
 The language now includes a first declaration surface for common IT entities:
 
-- `SERVICE`, `HOST`, `DATASOURCE`, `METRIC`, `POLICY`, `EVENT`, `TM_ATOM`, `LTS_ATOM`
+- `SERVICE`, `HOST`, `DATASOURCE`, `METRIC`, `POLICY`, `EVENT`, `PROVIDER`, `TM_ATOM`, `LTS_ATOM`
 
 These are not new core semantics. They are lowered to the canonical tuple core:
 
 - declaration kind fact: `entity#kind@entity:<kind>`
 - declaration attrs: `entity#attr@value`
 - service dependencies: `uses` / `used_by` / `depends_on`
+- provider relations: `entity#provider@provider:<name>` + inverse `provider:<name>#provides_for@entity`
 - TM transition relation: `tm_atom:<name>#transition@tmtr:<idx> [...]`
 - LTS edge relation: `lts_atom:<name>#edge@ltsedge:<idx> [...]`
 

@@ -21,6 +21,7 @@ It answers:
 | Lean4 bridge export | `./bin/zil export-lean <path> [output.lean] [namespace]` | Emit Lean `State/Event/step` skeletons. |
 | Theorem bridge export | `./bin/zil theorem-bridge <path> [output.zc] [module]` | Generate `LTS_ATOM` + `POLICY` skeletons from theorem contracts. |
 | Theorem incident CI | `./bin/zil theorem-ci <path> [out_dir] [bridge_module] [tla_module] [lean_namespace]` | One-shot theorem formal pipeline for time-critical operations. |
+| Theorem DSL CI | `./bin/zil theorem-dsl-ci <model.zc> [out_dir] [bridge_module] [tla_module] [lean_namespace] [summary_json]` | Macro-DSL theorem pipeline with operator summary JSON. |
 | TLM formal one-shot pipeline | `./tools/tlm_formal_ci.sh [model] [out_dir] [module] [namespace]` | Run LTS gate + constraint gate + TLA export + Lean export in one command. |
 | Runtime ingest one-shot | `zil.runtime.ingest/ingest-all!` | Pull from `DATASOURCE` declarations once. |
 | Runtime ingest continuous | `zil.runtime.ingest/start-all-pollers!` | Poll `DATASOURCE` declarations with `poll_mode=interval`. |
@@ -136,6 +137,7 @@ Commands:
 
 ```bash
 cd zil
+./bin/zil theorem-dsl-ci examples/theorem-dsl-incident.zc /tmp
 ./bin/zil theorem-ci examples/theorem-impact-devops-sre.zc /tmp theorem.bridge.generated TheoremBridgeFromZil Zil.Generated.TheoremBridge
 ./bin/zil theorem-bridge examples/theorem-impact-devops-sre.zc /tmp/theorem_bridge.zc
 ./bin/zil bundle-check /tmp/theorem_bridge.zc lts

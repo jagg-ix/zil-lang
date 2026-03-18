@@ -10,6 +10,7 @@
             [zil.lower :as zl]
             [zil.runtime.adapters.command]
             [zil.runtime.adapters.core :as ac]
+            [zil.runtime.adapters.cucumber]
             [zil.runtime.adapters.file]
             [zil.runtime.adapters.rest]
             [zil.runtime.datascript :as zr]))
@@ -45,6 +46,30 @@
     (keyword? k) k
     (string? k) (keyword (str/replace (str/lower-case k) #"[^a-z0-9_:\-\.]" "_"))
     :else (keyword (str k))))
+
+(defn- normalize-event-id
+  [v]
+  (let [s (cond
+            (keyword? v) (name v)
+            (string? v) (str/trim v)
+            :else (some-> v str str/trim))]
+    (when (and s (not (str/blank? s)))
+      (if (str/includes? s ":")
+        s
+        (str "event:" s)))))
+
+(defn- event-keyword
+  [v]
+  (when-let [eid (normalize-event-id v)]
+    (-> eid
+        (str/replace #"[^A-Za-z0-9_:\-\.]" "_")
+        keyword)))
+
+(defn- event-id-from-record
+  [record]
+  (or (normalize-event-id (:event_id record))
+      (normalize-event-id (:event-id record))
+      (normalize-event-id (:event record))))
 
 (defn- envelope-fact
   [datasource-id record ingest-ts]
@@ -82,21 +107,64 @@
   (for [[k v] record
         :when (and (not= k :metric)
                    (not= k :value)
-                   (not= k :metrics))]
+                   (not= k :metrics)
+                   (not= k :before)
+                   (not= k :vector_clock)
+                   (not= k :event_id)
+                   (not= k :event-id))]
     {:object datasource-id
      :relation (relation-key k)
      :subject (zl/subject-value v)
      :attrs {:ingest_ts ingest-ts}}))
 
+(defn- vector-clock-facts
+  [record ingest-ts]
+  (let [eid (event-id-from-record record)
+        vc (:vector_clock record)
+        vc* (when (map? vc) (zr/normalize-vector-clock vc))]
+    (if (and eid (map? vc*))
+      (for [[actor counter] vc*]
+        {:object eid
+         :relation :vc_component
+         :subject (str "actor:" (if (keyword? actor) (name actor) actor))
+         :attrs {:counter counter
+                 :ingest_ts ingest-ts}})
+      [])))
+
 (defn record->facts
   [datasource-id record ingest-ts]
-  (let [record* (if (map? record) record {:value record})]
+  (let [record* (if (map? record) record {:value record})
+        event-k (event-keyword (event-id-from-record record*))]
     (vec
-     (concat
-      [(envelope-fact datasource-id record* ingest-ts)]
-      (metric-observation-facts datasource-id record* ingest-ts)
-      (when (map? record*)
-        (scalar-field-facts datasource-id record* ingest-ts))))))
+     (map
+      #(cond-> %
+         event-k (assoc :event event-k))
+      (concat
+       [(envelope-fact datasource-id record* ingest-ts)]
+       (metric-observation-facts datasource-id record* ingest-ts)
+       (vector-clock-facts record* ingest-ts)
+       (when (map? record*)
+         (scalar-field-facts datasource-id record* ingest-ts)))))))
+
+(defn- explicit-before-edges
+  [record]
+  (let [right (event-keyword (event-id-from-record record))
+        lefts (or (:before record) [])]
+    (if right
+      (->> lefts
+           (map event-keyword)
+           (remove nil?)
+           (mapv (fn [left] {:left left :right right})))
+      [])))
+
+(defn- vector-clock-event
+  [record]
+  (let [event-k (event-keyword (event-id-from-record record))
+        vc (:vector_clock record)
+        vc* (when (map? vc) (zr/normalize-vector-clock vc))]
+    (when (and event-k (map? vc*))
+      {:event event-k
+       :vector_clock vc*})))
 
 (defn ingest-datasource-once!
   "Run one datasource adapter once and transact resulting facts."
@@ -106,17 +174,26 @@
    (let [ingest-ts (System/currentTimeMillis)
          records (ac/read-records datasource-spec {})
          facts (mapcat #(record->facts (:id datasource-spec) % ingest-ts) records)
+         explicit-edges (mapcat explicit-before-edges records)
+         vc-events (keep vector-clock-event records)
+         derived-edges (zr/derive-before-edges-from-vector-clocks vc-events)
+         before-edges (vec (distinct (concat explicit-edges derived-edges)))
          revision* (or revision ingest-ts)
          event* (or event
                     (keyword
                      (str "ingest_"
                           (str/replace (:id datasource-spec) #":" "_"))))
-         tx-facts (mapv #(assoc % :revision revision* :event event*) facts)]
+         tx-facts (mapv #(assoc % :revision revision* :event (or (:event %) event*)) facts)]
      (zr/transact-facts! conn tx-facts)
+     (when (seq before-edges)
+       (zr/transact-before-edges! conn before-edges))
      {:datasource (:id datasource-spec)
       :type (:type datasource-spec)
       :records (count records)
-      :facts (count tx-facts)})))
+      :facts (count tx-facts)
+      :before_edges (count before-edges)
+      :before_edges_explicit (count explicit-edges)
+      :before_edges_derived (count derived-edges)})))
 
 (defn ingest-all!
   "Run all DATASOURCE declarations from a compiled program."

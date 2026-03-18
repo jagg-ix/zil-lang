@@ -229,7 +229,7 @@
   (split-top-level-comma s "macro arguments"))
 
 (def stdlib-declaration-re
-  #"(?i)^(SERVICE|HOST|DATASOURCE|METRIC|POLICY|EVENT|TM_ATOM|LTS_ATOM)\s+([A-Za-z0-9_.:-]+)(?:\s*\[(.*)\])?\.\s*$")
+  #"(?i)^(SERVICE|HOST|DATASOURCE|METRIC|POLICY|EVENT|PROVIDER|TM_ATOM|LTS_ATOM)\s+([A-Za-z0-9_.:-]+)(?:\s*\[(.*)\])?\.\s*$")
 
 (defn parse-stdlib-declaration
   "Parse one standard-library declaration line.
