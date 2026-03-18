@@ -22,6 +22,16 @@
                  (zl/validate-declaration!
                   {:kind :datasource :name "bad" :attrs {:type "ftp"}}))))
 
+  (testing "Datasource enum validation accepts cucumber type"
+    (is (true? (zl/validate-declaration!
+                {:kind :datasource :name "cuk" :attrs {:type "cucumber"}}))))
+
+  (testing "Policy criticality accepts medium tier"
+    (is (true? (zl/validate-declaration!
+                {:kind :policy
+                 :name "p_medium"
+                 :attrs {:condition "x > 0" :criticality "medium"}}))))
+
   (testing "Service dependency references must exist"
     (is (thrown? clojure.lang.ExceptionInfo
                  (zl/validate-declarations!
@@ -46,7 +56,25 @@
                 [{:kind :service :name "svc" :attrs {:uses ["svc-db"]}}
                  {:kind :service :name "svc-db" :attrs {}}
                  {:kind :datasource :name "ds" :attrs {:type "rest"}}
-                 {:kind :metric :name "lat" :attrs {:source "datasource:ds"}}])))))
+                 {:kind :metric :name "lat" :attrs {:source "datasource:ds"}}]))))
+
+  (testing "Provider references must resolve to PROVIDER declarations"
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (zl/validate-declarations!
+                  [{:kind :datasource :name "cloud_ds" :attrs {:type "rest" :provider "aws"}}]))))
+
+  (testing "Provider declaration requires namespaced source"
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (zl/validate-declaration!
+                  {:kind :provider :name "aws" :attrs {:source "aws"}}))))
+
+  (testing "Provider references lower to provider+inverse facts"
+    (let [facts (zl/declaration->facts {:kind :datasource
+                                        :name "cloud_ds"
+                                        :attrs {:type "rest" :provider "aws"}})
+          triples (set (map (juxt :object :relation :subject) facts))]
+      (is (contains? triples ["datasource:cloud_ds" :provider "provider:aws"]))
+      (is (contains? triples ["provider:aws" :provides_for "datasource:cloud_ds"])))))
 
 (deftest tm-atom-validation-and-lowering-test
   (let [tm {:kind :tm_atom

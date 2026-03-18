@@ -15,11 +15,20 @@ Current built-in declarations are IT-oriented because they are the primary
 immediate use case in this repository, but they are layered above the core
 tuple/rule semantics and do not define language boundaries.
 
+The declaration layer includes an explicit external `PROVIDER` concept so
+models can reference external systems/adapters (for example OpenTofu/HCL
+providers) without hardwiring provider semantics into the core language.
+
 Architecture guide:
 
 - `docs/language-architecture.md`
 - `docs/language-design.md`
 - `docs/tooling-workflows.md`
+- `docs/provider-model-hcl-import.md`
+- `docs/needs-provider-macro-layer.md`
+- `docs/request-form-modeling.md`
+- `docs/rbac-dac-macro-layer.md`
+- `docs/theorem-impact-macro-layer.md`
 - `docs/vscode-wolfram-reuse-for-zil.md`
 - `spec/zil-v0.1r1.md`
 
@@ -36,6 +45,7 @@ Architecture guide:
 - `spec/` normative language specs
 - `profiles/` optional profile specs (e.g., zanzibar)
 - `docs/` explanatory guides and rationale
+- `lib/` reusable macro-library modules
 - `examples/` illustrative models and queries
 - `notes/` open issues and design decisions
 - `src/zil/runtime/` executable runtime scaffolds
@@ -91,6 +101,34 @@ Run a `.zc` file through the core engine:
 
 ```bash
 clojure -M -m zil.cli examples/it-infra-minimal.zc
+```
+
+Import HCL/OpenTofu descriptions into ZIL:
+
+```bash
+clojure -M -m zil.cli import-hcl path/to/infra/ [output.zc] [module_name]
+./bin/zil import-hcl path/to/infra/ /tmp/infra-imported.zc hcl.import.infra
+```
+
+Preprocess a model with automatic `lib/*.zc` concatenation:
+
+```bash
+./bin/zil preprocess models/system.zc /tmp/system.pre.zc
+./bin/zil /tmp/system.pre.zc
+```
+
+RBAC/DAC macro-layer demo:
+
+```bash
+./bin/zil preprocess examples/rbac-dac-orange-book.zc /tmp/rbd.pre.zc
+./bin/zil /tmp/rbd.pre.zc
+```
+
+Theorem/lemma status + backward breakage demo:
+
+```bash
+./bin/zil preprocess examples/theorem-impact-devops-sre.zc /tmp/theorem_impact.pre.zc
+./bin/zil /tmp/theorem_impact.pre.zc
 ```
 
 ## Standalone Runtime (No Clojure CLI Needed)
@@ -181,6 +219,28 @@ Domain library layer examples using macros:
 - `docs/tlm-macro-layer.md`
 - `examples/tlm-domain-macros.zc`
 - `examples/tlm-formal-bridge.zc`
+- `docs/tpl-macro-layer.md`
+- `examples/tpl-macro-layer.zc`
+- `docs/pi-calculus-vc-macro-layer.md`
+- `examples/pi-calculus-vc-macro-layer.zc`
+- `docs/temporal-pi-quickstart.md`
+- `examples/temporal-pi-quickstart.zc`
+- `docs/petrinet-nd-macro-layer.md`
+- `examples/petrinet-nd-macro-layer.zc`
+- `docs/provider-model-hcl-import.md`
+- `examples/provider-external-minimal.zc`
+- `docs/needs-provider-macro-layer.md`
+- `lib/needs-provider-macros.zc`
+- `examples/needs-provider-macro-layer.zc`
+- `docs/request-form-modeling.md`
+- `lib/request-form-macros.zc`
+- `docs/rbac-dac-macro-layer.md`
+- `lib/rbac-dac-macros.zc`
+- `examples/rbac-dac-orange-book.zc`
+- `docs/theorem-impact-macro-layer.md`
+- `lib/theorem-impact-macros.zc`
+- `examples/theorem-impact-devops-sre.zc`
+- `examples/request-form-recursive.zc`
 
 ## Standard Declarations (Phase 1)
 
@@ -206,6 +266,7 @@ Supported declaration kinds in this phase:
 - `METRIC` (requires `source=...`)
 - `POLICY`
 - `EVENT`
+- `PROVIDER` (requires `source=...`; for external provider identities/capabilities)
 - `TM_ATOM` (complete deterministic TM unit for model exchange profile `tm.det`)
 - `LTS_ATOM` (labeled transition-system unit for profile `lts`)
 
@@ -214,10 +275,12 @@ Lowering behavior:
 - each declaration emits `entity-id#kind@entity:<kind>`
 - each attribute emits `entity-id#<attr>@<value>`
 - collection attrs emit one fact per element
-- `criticality` is normalized to `low|high`
+- `criticality` is normalized to `low|medium|high|critical`
 - service `depends` aliases to `uses`
 - service `depended_by` aliases to `used_by`
 - `uses` emits inverse `used_by` + `depends_on` facts
+- provider refs (`provider`/`providers`) normalize to `provider:<name>`
+- provider refs emit inverse `provider:<name>#provides_for@<entity>`
 
 Validation in this phase:
 
@@ -226,6 +289,7 @@ Validation in this phase:
 - service dependency cycles are rejected
 - metric `source=...` references must point to declared datasources
 - datasource and environment enum fields are normalized/validated
+- provider refs must target declared `PROVIDER` entities
 - `TM_ATOM` consistency + transition completeness are validated
 - `LTS_ATOM` transition-state and shape constraints are validated
 
@@ -234,7 +298,7 @@ Validation in this phase:
 Runtime ingestion now includes:
 
 - adapter registry: `src/zil/runtime/adapters/core.clj`
-- adapters: `rest`, `file`, `command`
+- adapters: `rest`, `file`, `command`, `cucumber`
 - ingest pipeline: `src/zil/runtime/ingest.clj`
 
 The ingest pipeline runs datasource declarations once and transacts normalized
@@ -251,6 +315,18 @@ REST adapter notes:
 - supports `method`, `headers`, `body`, `timeout_ms`
 - parses `format=json|edn|text`
 - still supports `mock_response` / `mock_responses` and `path`
+
+Cucumber adapter notes:
+
+- `DATASOURCE ... [type=cucumber, path=\"/path/to/cucumber-report.json\"]`
+- parses feature/scenario/step records into normalized ingest records
+- emits scenario-local vector clock components and before edges
+- supports causal checks via `before?` / `concurrent?` runtime helpers
+
+See:
+
+- `docs/cucumber-causal-integration.md`
+- `examples/cucumber-causal-datasource.zc`
 
 ## Git-Native Modeling Plan
 
@@ -272,6 +348,7 @@ the selected profile (`TM_ATOM`, `LTS_ATOM`, or `POLICY`).
 For `constraint` profile, `POLICY` conditions are solver-checked using Z3
 (SMT-LIB over arithmetic/boolean expressions). Unsatisfiable or unknown
 conditions fail checks.
+Implication is supported as `IMPLIES`, `->`, or `=>`.
 
 Commit-unit policy check (profile-aware):
 
@@ -302,6 +379,19 @@ clojure -M -m zil.cli export-lean examples/sshx11-vpn-system.zc
 clojure -M -m zil.cli export-lean examples/sshx11-vpn-system.zc /tmp/sshx11_bridge.lean Zil.Generated.SSHX11
 ```
 
+Theorem bridge generator (theorem contracts -> `LTS_ATOM` + `POLICY` sidecar):
+
+```bash
+clojure -M -m zil.cli theorem-bridge examples/theorem-impact-devops-sre.zc
+clojure -M -m zil.cli theorem-bridge examples/theorem-impact-devops-sre.zc /tmp/theorem_bridge.zc theorem.bridge.generated
+```
+
+Theorem incident CI (one-shot: bridge + checks + TLA/Lean exports):
+
+```bash
+clojure -M -m zil.cli theorem-ci examples/theorem-impact-devops-sre.zc /tmp theorem.bridge.generated TheoremBridgeFromZil Zil.Generated.TheoremBridge
+```
+
 ## Usage Comparison (Best Way By Goal)
 
 `./bin/zil` is the portable default command in this table. If you prefer direct
@@ -314,10 +404,12 @@ Clojure invocation, replace `./bin/zil` with `clojure -M -m zil.cli`.
 | Enforce strict per-commit model units in CI | `commit-check` | `./bin/zil commit-check changes lts` | Best for team governance and reviewable commit atoms. |
 | Mixed files but still unit-gated | Relaxed `commit-check` | `./bin/zil commit-check changes lts --allow-mixed` | Preserves one unit/file rule while allowing helper declarations. |
 | Constraint/invariant consistency | `constraint` profile | `./bin/zil bundle-check models constraint` | Uses SMT (Z3) to detect unsat policies early. |
+| Import-like model composition from `lib/*.zc` | `preprocess` | `./bin/zil preprocess models/system.zc /tmp/system.pre.zc` | Enables reusable macro/rule library layering without changing core semantics. |
 | Operational incident/state progression models | `LTS_ATOM` + `lts` checks | `./bin/zil bundle-check incidents lts` | Most direct fit for workflows and state transitions. |
 | Deterministic machine-atom exchange | `TM_ATOM` + `tm.det` checks | `./bin/zil commit-check units tm.det` | Strong unit completeness contract. |
 | Formal spec alignment with TLA+ | `export-tla` from same LTS vocabulary | `./bin/zil export-tla models/sshx11.zc /tmp/model.tla ModuleName` | Keeps transitions and names synchronized with model files. |
 | Lean4 implementation/proof bootstrap | `export-lean` from same LTS vocabulary | `./bin/zil export-lean models/sshx11.zc /tmp/model.lean Zil.Generated.SSHX11` | Generates `State`/`Event`/`step` skeletons quickly and consistently. |
+| Theorem-to-formal integrated pipeline | `theorem-bridge` + profile checks | `./bin/zil theorem-bridge models/theorems.zc /tmp/theorem_bridge.zc` | Auto-derives `LTS_ATOM` and `POLICY` contracts from theorem facts for one pipeline. |
 | Live telemetry-driven model updates | `DATASOURCE` + ingest pollers | Runtime API: `start-all-pollers!` with `poll_mode=interval` | Best for continuous observation pipelines. |
 
 Recommended default for teams:

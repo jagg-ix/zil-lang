@@ -4,27 +4,30 @@
             [clojure.string :as str]))
 
 (def stdlib-kinds
-  #{:service :host :datasource :metric :policy :event :tm_atom :lts_atom})
+  #{:service :host :datasource :metric :policy :event :provider :tm_atom :lts_atom})
 
 (def required-attrs
   "Minimal required attrs for stdlib declarations."
   {:datasource #{:type}
+   :provider #{:source}
    :metric #{:source}
    :tm_atom #{:states :alphabet :blank :initial :accept :reject :transitions}
    :lts_atom #{:states :initial :transitions}})
 
 (def enum-values
   "Enum validation by declaration kind and attr key."
-  {:service {:criticality #{:low :high}
+  {:service {:criticality #{:low :medium :high :critical}
              :environment #{:dev :qa :prod :dr :cqa}
              :env #{:dev :qa :prod :dr :cqa}}
    :host {:environment #{:dev :qa :prod :dr :cqa}
           :type #{:physical :vm :container :pod :process}}
-   :datasource {:type #{:rest :file :command :socket :websocket :pipe}
+   :datasource {:type #{:rest :file :command :socket :websocket :pipe :cucumber}
                 :format #{:json :text :csv :edn :kv}
                 :poll_mode #{:event :interval}}
-   :event {:criticality #{:low :high}}
-   :policy {:criticality #{:low :high}}})
+   :provider {:language #{:hcl :opentofu :terraform :native}
+              :engine #{:opentofu :terraform :hcl_native :custom}}
+   :event {:criticality #{:low :medium :high :critical}}
+   :policy {:criticality #{:low :medium :high :critical}}})
 
 (def service-relation-aliases
   {:depends :uses
@@ -32,6 +35,11 @@
 
 (def dependency-relations
   #{:uses :used_by})
+
+(def provider-relations
+  #{:provider :providers})
+
+(declare normalize-entity-ref)
 
 (defn entity-id
   "Stable string id for a declaration kind/name pair."
@@ -83,7 +91,9 @@
 (defn- normalize-attr-value
   [kind attr-key v]
   (let [vals (attr-values v)
-        normalized (mapv #(normalize-enum-value kind attr-key %) vals)]
+        normalized (if (contains? provider-relations attr-key)
+                     (mapv #(normalize-entity-ref :provider %) vals)
+                     (mapv #(normalize-enum-value kind attr-key %) vals))]
     (if (and (coll? v) (not (map? v)))
       normalized
       (first normalized))))
@@ -269,6 +279,17 @@
                           {:name name :key k :value v})))))
     true))
 
+(defn- validate-provider!
+  [{:keys [name attrs]}]
+  (let [source (token->name (:source attrs))]
+    (when (str/blank? source)
+      (throw (ex-info "PROVIDER source must be non-empty"
+                      {:name name :source source})))
+    (when-not (str/includes? source "/")
+      (throw (ex-info "PROVIDER source should include namespace/type (or host/namespace/type)"
+                      {:name name :source source}))))
+  true)
+
 (defn- required-attr-check!
   [{:keys [kind attrs name]}]
   (let [required (get required-attrs kind #{})
@@ -291,6 +312,8 @@
   ;; Normalization is run here to validate enum-compatible fields early.
   (normalize-attrs kind attrs)
   (required-attr-check! decl)
+  (when (= kind :provider)
+    (validate-provider! {:name name :attrs attrs}))
   (when (= kind :tm_atom)
     (validate-tm-atom! {:name name :attrs attrs}))
   (when (= kind :lts_atom)
@@ -315,6 +338,11 @@
 (defn- relation-refs
   [attrs rel]
   (map #(normalize-entity-ref :service %)
+       (attr-values (get attrs rel []))))
+
+(defn- relation-provider-refs
+  [attrs rel]
+  (map #(normalize-entity-ref :provider %)
        (attr-values (get attrs rel []))))
 
 (defn- validate-service-dependencies!
@@ -358,6 +386,26 @@
         (when-not (= :datasource (:kind target))
           (throw (ex-info "Metric source must reference a DATASOURCE declaration"
                           {:metric entity :source target-id :target-kind (:kind target)})))))))
+
+(defn- validate-provider-references!
+  [declarations]
+  (let [idx (declaration-index declarations)]
+    (doseq [{:keys [kind name attrs]} declarations
+            :when (not= kind :provider)
+            :let [entity (entity-id kind name)
+                  attrs* (normalize-attrs kind attrs)]
+            rel provider-relations
+            pref (relation-provider-refs attrs* rel)]
+      (let [target (get idx pref)]
+        (when-not target
+          (throw (ex-info "Provider reference not found"
+                          {:entity entity :relation rel :provider pref})))
+        (when-not (= :provider (:kind target))
+          (throw (ex-info "Provider reference must target a PROVIDER declaration"
+                          {:entity entity
+                           :relation rel
+                           :provider pref
+                           :target-kind (:kind target)})))))))
 
 (defn- service-use-edges
   [declarations]
@@ -420,6 +468,7 @@
   (validate-service-dependencies! declarations)
   (validate-service-graph! declarations)
   (validate-metric-sources! declarations)
+  (validate-provider-references! declarations)
   true)
 
 (defn- dependency-facts
@@ -440,6 +489,24 @@
                        :subject ref
                        :attrs {}})))
             refs)))
+
+(defn- provider-binding-facts
+  [entity relation refs]
+  (mapcat (fn [ref]
+            (cond-> [{:object entity
+                      :relation :provider
+                      :subject ref
+                      :attrs {}}
+                     {:object ref
+                      :relation :provides_for
+                      :subject entity
+                      :attrs {}}]
+              (= relation :providers)
+              (conj {:object entity
+                     :relation :providers
+                     :subject ref
+                     :attrs {}})))
+          refs))
 
 (defn- tm-transition-facts
   [entity transitions]
@@ -499,6 +566,9 @@
                       (and (= kind :service)
                            (contains? dependency-relations k))
                       (dependency-facts entity k (relation-refs attrs* k))
+
+                      (contains? provider-relations k)
+                      (provider-binding-facts entity k (relation-provider-refs attrs* k))
 
                       (and (= kind :tm_atom) (= k :transitions))
                       (tm-transition-facts entity v)

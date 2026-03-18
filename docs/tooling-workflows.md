@@ -13,10 +13,14 @@ It answers:
 | Tool | Command/API | Use |
 |---|---|---|
 | Execute one model | `./bin/zil <file.zc>` | Fast local authoring loop for facts/rules/queries. |
+| Preprocess model with `lib/*.zc` | `./bin/zil preprocess <model.zc> [output.zc] [lib_dir]` | Import-like composition by concatenating reusable library files ahead of the model. |
+| Import HCL/OpenTofu | `./bin/zil import-hcl <file-or-dir> [output.zc] [module]` | Convert `.tf/.hcl` descriptions into executable ZIL model text. |
 | Bundle policy gate | `./bin/zil bundle-check <path> [tm.det\|lts\|constraint]` | Validate a bundle before share/review. |
 | Commit-unit policy gate | `./bin/zil commit-check <path> [tm.det\|lts\|constraint] [--allow-mixed]` | Enforce per-file unit contracts in CI. |
 | TLA bridge export | `./bin/zil export-tla <path> [output.tla] [module]` | Emit TLA skeleton from `LTS_ATOM` vocabulary. |
 | Lean4 bridge export | `./bin/zil export-lean <path> [output.lean] [namespace]` | Emit Lean `State/Event/step` skeletons. |
+| Theorem bridge export | `./bin/zil theorem-bridge <path> [output.zc] [module]` | Generate `LTS_ATOM` + `POLICY` skeletons from theorem contracts. |
+| Theorem incident CI | `./bin/zil theorem-ci <path> [out_dir] [bridge_module] [tla_module] [lean_namespace]` | One-shot theorem formal pipeline for time-critical operations. |
 | TLM formal one-shot pipeline | `./tools/tlm_formal_ci.sh [model] [out_dir] [module] [namespace]` | Run LTS gate + constraint gate + TLA export + Lean export in one command. |
 | Runtime ingest one-shot | `zil.runtime.ingest/ingest-all!` | Pull from `DATASOURCE` declarations once. |
 | Runtime ingest continuous | `zil.runtime.ingest/start-all-pollers!` | Poll `DATASOURCE` declarations with `poll_mode=interval`. |
@@ -56,6 +60,23 @@ Expected output shape:
 - `:facts`
 - `:declarations`
 - `:queries`
+
+## Workflow A1: Import-Like Library Composition
+
+Use this when models depend on reusable macro/rule files under `lib/`.
+
+1. Preprocess the model.
+2. Execute/check the generated preprocessed file.
+3. Regenerate whenever `lib/*.zc` or the model changes.
+
+Example:
+
+```bash
+cd zil
+./bin/zil preprocess models/system.zc /tmp/system.pre.zc
+./bin/zil /tmp/system.pre.zc
+./bin/zil bundle-check /tmp/system.pre.zc lts
+```
 
 ## Workflow B: Gate Before Share
 
@@ -106,14 +127,19 @@ cd zil
 Use this when synchronizing with TLA+ and Lean4 work.
 
 1. Run `bundle-check` first (`lts`, then `constraint`).
-2. Export TLA from the same model source.
-3. Export Lean skeleton from the same model source.
-4. Continue model checking/proofs in downstream toolchains.
+2. If theorem contracts are the source, generate sidecar `LTS_ATOM`/`POLICY` with `theorem-bridge`.
+3. Export TLA from the same model source.
+4. Export Lean skeleton from the same model source.
+5. Continue model checking/proofs in downstream toolchains.
 
 Commands:
 
 ```bash
 cd zil
+./bin/zil theorem-ci examples/theorem-impact-devops-sre.zc /tmp theorem.bridge.generated TheoremBridgeFromZil Zil.Generated.TheoremBridge
+./bin/zil theorem-bridge examples/theorem-impact-devops-sre.zc /tmp/theorem_bridge.zc
+./bin/zil bundle-check /tmp/theorem_bridge.zc lts
+./bin/zil bundle-check /tmp/theorem_bridge.zc constraint
 ./bin/zil export-tla examples/sshx11-vpn-system.zc /tmp/sshx11.tla SSHX11BridgeFromZil
 ./bin/zil export-lean examples/sshx11-vpn-system.zc /tmp/sshx11.lean Zil.Generated.SSHX11
 ```

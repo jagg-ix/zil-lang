@@ -1,18 +1,30 @@
 (ns zil.test-runner
   (:require [clojure.test :refer [run-tests]]
             [zil.bridge-lean4-test]
+            [zil.bridge-theorem-ci-test]
+            [zil.bridge-theorem-test]
             [zil.bridge-tla-test]
             [zil.core-test]
+            [zil.import-hcl-test]
             [zil.lower-test]
             [zil.model-exchange-test]
+            [zil.preprocess-test]
+            [zil.profile-z3-test]
+            [zil.runtime-datascript-vector-clock-test]
             [zil.runtime-ingest-test]))
 
 (defn -main
   [& _]
   (let [{:keys [fail error]} (run-tests 'zil.bridge-lean4-test
+                                        'zil.bridge-theorem-ci-test
+                                        'zil.bridge-theorem-test
                                         'zil.bridge-tla-test
                                         'zil.core-test
+                                        'zil.import-hcl-test
                                         'zil.lower-test
                                         'zil.model-exchange-test
+                                        'zil.preprocess-test
+                                        'zil.profile-z3-test
+                                        'zil.runtime-datascript-vector-clock-test
                                         'zil.runtime-ingest-test)]
     (System/exit (if (pos? (+ fail error)) 1 0))))
