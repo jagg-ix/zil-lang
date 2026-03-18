@@ -218,6 +218,7 @@ Domain library layer examples using macros:
 - `docs/domain-library-macros.md`
 - `examples/domain-library-macros.zc`
 - `docs/tlm-macro-layer.md`
+- `lib/tlm-macros.zc`
 - `examples/tlm-domain-macros.zc`
 - `examples/tlm-formal-bridge.zc`
 - `docs/tpl-macro-layer.md`

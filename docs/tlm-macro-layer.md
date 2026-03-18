@@ -36,6 +36,7 @@ TLM concept to ZIL macro mapping:
 
 Use:
 
+- `lib/tlm-macros.zc` (canonical shared TLM macro library)
 - `examples/tlm-domain-macros.zc`
 - `examples/sshx11-tlm-catalog.zc` (catalog-scale macro composition)
 
