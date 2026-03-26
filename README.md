@@ -24,14 +24,31 @@ Architecture guide:
 - `docs/language-architecture.md`
 - `docs/language-design.md`
 - `docs/tooling-workflows.md`
+- `docs/project-import-patterns.md`
 - `docs/provider-model-hcl-import.md`
+- `docs/json-yaml-csv-interop-layer.md`
+- `docs/config-declarative-macro-layer.md`
+- `docs/k8s-helm-compat-automation.md`
+- `docs/aws-overview-modeling-workflow.md`
+- `docs/aws-model-extension-and-icons.md`
+- `docs/aws-namespace-integration.md`
+- `docs/nvidia-aie-glossary-workflow.md`
+- `docs/everparse-interop-layer.md`
+- `docs/everparse-paper-automation.md`
+- `docs/backend-formal-contract.md`
+- `docs/acl2-integration.md`
 - `docs/needs-provider-macro-layer.md`
 - `docs/request-form-modeling.md`
 - `docs/rbac-dac-macro-layer.md`
+- `docs/bitemporal-dsl-layer.md`
+- `docs/namespace-pn-nd-extension.md`
 - `docs/theorem-impact-macro-layer.md`
 - `docs/theorem-dsl-ci-workflow.md`
+- `docs/evmone-dmetavm-application.md`
+- `docs/dmetavm-formal-workflow.md`
 - `docs/vscode-wolfram-reuse-for-zil.md`
 - `spec/zil-v0.1r1.md`
+- `spec/dmetavm-core-v0.1.md`
 
 ## Repository Goals
 
@@ -48,6 +65,7 @@ Architecture guide:
 - `docs/` explanatory guides and rationale
 - `lib/` reusable macro-library modules
 - `examples/` illustrative models and queries
+- `projects/` domain-specific implementation packs (kept separate from core)
 - `notes/` open issues and design decisions
 - `src/zil/runtime/` executable runtime scaffolds
 
@@ -111,11 +129,76 @@ clojure -M -m zil.cli import-hcl path/to/infra/ [output.zc] [module_name]
 ./bin/zil import-hcl path/to/infra/ /tmp/infra-imported.zc hcl.import.infra
 ```
 
+Import external JSON/YAML/CSV into generated ZIL facts:
+
+```bash
+./bin/zil import-data examples/data/interop-sample.json /tmp/interop_from_json.zc interop.import json
+./bin/zil import-data examples/data/interop-sample.yaml /tmp/interop_from_yaml.zc interop.import yaml
+./bin/zil import-data examples/data/interop-sample.csv /tmp/interop_from_csv.zc interop.import csv
+```
+
+Export model outputs in JSON/YAML/CSV:
+
+```bash
+./bin/zil export-data examples/interop-json-yaml-csv.zc json /tmp/zil_queries.json queries
+./bin/zil export-data examples/interop-json-yaml-csv.zc yaml /tmp/zil_queries.yaml queries
+./bin/zil export-data examples/interop-json-yaml-csv.zc csv /tmp/service_states.csv service_states
+```
+
+Generate Kubernetes/Helm compatibility macro layer + runnable example automatically:
+
+```bash
+python3 tools/generate_k8s_helm_compat.py
+./bin/zil preprocess examples/k8s-helm-compat.zc /tmp/k8s_helm_compat.pre.zc libsets/k8s-helm-compat
+./bin/zil /tmp/k8s_helm_compat.pre.zc
+./tools/k8s_helm_compat_smoke.sh
+```
+
+Extract AWS whitepaper model inputs and run AWS compatibility smoke:
+
+```bash
+python3 tools/extract_aws_overview_model_inputs.py
+./bin/zil examples/generated/aws-overview-model-inputs.zc
+./tools/aws_overview_compat_smoke.sh
+./tools/aws_extension_icons_smoke.sh
+```
+
+Extract NVIDIA AI Enterprise glossary inputs (equivalent glossary model flow):
+
+```bash
+python3 tools/extract_nvidia_aie_glossary_inputs.py
+./bin/zil examples/generated/nvidia-aie-glossary-inputs.zc
+./tools/nvidia_aie_glossary_smoke.sh
+```
+
+EverParse/3d interop demo (specs/artifacts/guarantees/tests as ZIL facts):
+
+```bash
+./bin/zil preprocess examples/everparse-interop-demo.zc /tmp/everparse_interop.pre.zc libsets/everparse-interop
+./bin/zil /tmp/everparse_interop.pre.zc
+```
+
+Generate a paper-wide EverParse extension scaffold from arXiv:2505.17335v2:
+
+```bash
+python3 tools/generate_everparse_2505_17335_extension.py --pdf ~/Downloads/2505.17335v2.pdf
+./bin/zil preprocess examples/generated/everparse-2505-17335-extension.zc /tmp/everparse_2505_17335.pre.zc libsets/everparse-interop
+./bin/zil /tmp/everparse_2505_17335.pre.zc
+```
+
 Preprocess a model with automatic `lib/*.zc` concatenation:
 
 ```bash
 ./bin/zil preprocess models/system.zc /tmp/system.pre.zc
 ./bin/zil /tmp/system.pre.zc
+```
+
+Run imported domain project models (example: FTS migration pack):
+
+```bash
+./tools/project_import_fts_sync.sh
+./tools/project_run_model.sh fts-sync-migration models/examples/system-sync-migration-generic.zc
+./tools/project_run_model.sh fts-sync-migration models/examples/system-sync-migration-tlm.zc
 ```
 
 RBAC/DAC macro-layer demo:
@@ -125,12 +208,47 @@ RBAC/DAC macro-layer demo:
 ./bin/zil /tmp/rbd.pre.zc
 ```
 
+Namespace + PetriNet + N-dimensional extension demo:
+
+```bash
+./bin/zil preprocess examples/namespace-pn-nd-extension.zc /tmp/namespace_pn_nd.pre.zc libsets/namespace-pn-nd
+./bin/zil /tmp/namespace_pn_nd.pre.zc
+./tools/namespace_pn_nd_smoke.sh
+```
+
+AWS + namespace scoped compatibility demo:
+
+```bash
+./bin/zil preprocess examples/aws-namespace-compat.zc /tmp/aws_ns.pre.zc libsets/aws-namespace
+./bin/zil /tmp/aws_ns.pre.zc
+./tools/aws_namespace_smoke.sh
+```
+
 Theorem/lemma status + backward breakage demo:
 
 ```bash
 ./bin/zil preprocess examples/theorem-impact-devops-sre.zc /tmp/theorem_impact.pre.zc
 ./bin/zil /tmp/theorem_impact.pre.zc
 ```
+
+Bitemporal history + correction + replay demo:
+
+```bash
+./bin/zil preprocess examples/bitemporal-history-replay.zc /tmp/bt.pre.zc libsets/bitemporal
+./bin/zil /tmp/bt.pre.zc
+```
+
+Integrated V-Stack CI (theorem + refinement relation layer):
+
+```bash
+./bin/zil vstack-ci examples/vstack-refinement-minimal.zc /tmp/vstack-ci
+./bin/zil vstack-ci examples/vstack-refinement-minimal.zc /tmp/vstack-ci - - - /tmp/vstack.summary.json
+```
+
+`vstack-ci` now writes a machine-readable summary JSON artifact by default at
+`<out-dir>/<input-stem>.vstack.summary.json`.
+It also emits a BackendCapabilities/FormalFeedbackSchema-compatible sidecar at
+`<out-dir>/<input-stem>.vstack.feedback.zc`.
 
 ## Standalone Runtime (No Clojure CLI Needed)
 
@@ -173,6 +291,13 @@ Native host + WASM/JS screen automation modeling example:
 ./bin/zil bundle-check examples/native-host-wasm-screen-automation.zc constraint
 ```
 
+Declarative config macro-layer example:
+
+```bash
+./bin/zil preprocess examples/config-declarative-macros.zc /tmp/config.pre.zc libsets/config-declarative
+./bin/zil /tmp/config.pre.zc
+```
+
 Transaction-level modeling (TLM) macro-layer example:
 
 ```bash
@@ -186,6 +311,22 @@ TLM formal backend bridge example (Z3/TLA+/Lean4):
 ./bin/zil bundle-check examples/tlm-formal-bridge.zc constraint
 ./bin/zil export-tla examples/tlm-formal-bridge.zc /tmp/tlm_bridge.tla TLMBridgeFromZil
 ./bin/zil export-lean examples/tlm-formal-bridge.zc /tmp/tlm_bridge.lean Zil.Generated.TLM
+```
+
+D-MetaVM (evmone-oriented) model example:
+
+```bash
+./bin/zil examples/evmone-dmetavm.zc
+./bin/zil bundle-check examples/evmone-dmetavm.zc lts
+./bin/zil bundle-check examples/evmone-dmetavm.zc constraint
+./bin/zil export-tla examples/evmone-dmetavm.zc /tmp/dmetavm_evmone.tla DMetaVMEvmone
+./bin/zil export-lean examples/evmone-dmetavm.zc /tmp/dmetavm_evmone.lean Zil.Generated.DMetaVMEvmone
+```
+
+D-MetaVM one-shot formal pipeline wrapper:
+
+```bash
+./tools/dmetavm_formal_ci.sh
 ```
 
 One-shot CI wrapper for the same chain:
@@ -221,6 +362,7 @@ Domain library layer examples using macros:
 - `lib/tlm-macros.zc`
 - `examples/tlm-domain-macros.zc`
 - `examples/tlm-formal-bridge.zc`
+- `examples/vstack-refinement-minimal.zc`
 - `docs/tpl-macro-layer.md`
 - `examples/tpl-macro-layer.zc`
 - `docs/pi-calculus-vc-macro-layer.md`
@@ -230,6 +372,18 @@ Domain library layer examples using macros:
 - `docs/petrinet-nd-macro-layer.md`
 - `examples/petrinet-nd-macro-layer.zc`
 - `docs/provider-model-hcl-import.md`
+- `docs/json-yaml-csv-interop-layer.md`
+- `lib/interop-macros.zc`
+- `examples/interop-json-yaml-csv.zc`
+- `docs/config-declarative-macro-layer.md`
+- `lib/config-declarative-macros.zc`
+- `libsets/config-declarative/config-declarative-macros.zc`
+- `examples/config-declarative-macros.zc`
+- `docs/backend-formal-contract.md`
+- `lib/backend-formal-contract-macros.zc`
+- `lib/acl2-interop-macros.zc`
+- `examples/backend-formal-contract-demo.zc`
+- `examples/acl2-proof-obligation-log.zc`
 - `examples/provider-external-minimal.zc`
 - `docs/needs-provider-macro-layer.md`
 - `lib/needs-provider-macros.zc`
@@ -394,6 +548,22 @@ Theorem incident CI (one-shot: bridge + checks + TLA/Lean exports):
 clojure -M -m zil.cli theorem-ci examples/theorem-impact-devops-sre.zc /tmp theorem.bridge.generated TheoremBridgeFromZil Zil.Generated.TheoremBridge
 ```
 
+Proof-obligation execution gate (`tool=z3` and `tool=acl2` log-evidence mode):
+
+```bash
+clojure -M -m zil.cli proof-obligation-check examples/vstack-refinement-minimal.zc z3
+clojure -M -m zil.cli proof-obligation-check examples/acl2-proof-obligation-log.zc acl2
+```
+
+`vstack-ci` can now select obligation backend explicitly:
+
+```bash
+clojure -M -m zil.cli vstack-ci examples/vstack-refinement-minimal.zc /tmp - - - - all
+```
+
+When using `all`, each non-Z3 obligation should provide either `artifact_in` or
+`command` evidence so the gate does not remain `unknown`.
+
 Theorem DSL CI (macro DSL + operator summary JSON + formal exports):
 
 ```bash
@@ -418,6 +588,8 @@ Clojure invocation, replace `./bin/zil` with `clojure -M -m zil.cli`.
 | Formal spec alignment with TLA+ | `export-tla` from same LTS vocabulary | `./bin/zil export-tla models/sshx11.zc /tmp/model.tla ModuleName` | Keeps transitions and names synchronized with model files. |
 | Lean4 implementation/proof bootstrap | `export-lean` from same LTS vocabulary | `./bin/zil export-lean models/sshx11.zc /tmp/model.lean Zil.Generated.SSHX11` | Generates `State`/`Event`/`step` skeletons quickly and consistently. |
 | Theorem-to-formal integrated pipeline | `theorem-bridge` + profile checks | `./bin/zil theorem-bridge models/theorems.zc /tmp/theorem_bridge.zc` | Auto-derives `LTS_ATOM` and `POLICY` contracts from theorem facts for one pipeline. |
+| Execute refinement/theorem obligations through SMT bridge | `proof-obligation-check` | `./bin/zil proof-obligation-check models/system.zc z3` | Uses declared `PROOF_OBLIGATION` contracts as one formal gate surface. |
+| Ingest ACL2 proof outcomes from external runs | `proof-obligation-check` with `tool=acl2` + `artifact_in` | `./bin/zil proof-obligation-check examples/acl2-proof-obligation-log.zc acl2` | Lets ACL2 remain external while feeding deterministic proof verdicts back into ZIL CI/status loops. |
 | Live telemetry-driven model updates | `DATASOURCE` + ingest pollers | Runtime API: `start-all-pollers!` with `poll_mode=interval` | Best for continuous observation pipelines. |
 
 Recommended default for teams:
