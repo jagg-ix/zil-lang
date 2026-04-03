@@ -1,0 +1,28 @@
+industry,benefit_driver,baseline_volume,unit_cost_usd,improvement_percent,annual_benefit_usd_formula,annual_benefit_usd
+Finance_Regulated_IT,Audit prep savings,500,140,35,=C2*D2*(E2/100),=C2*D2*(E2/100)
+Finance_Regulated_IT,Change failure reduction,22,4000,100,=C3*D3*(E3/100),=C3*D3*(E3/100)
+Finance_Regulated_IT,Incident investigation savings,45,510,100,=C4*D4*(E4/100),=C4*D4*(E4/100)
+Finance_Regulated_IT,Rework reduction,120,300,40,=C5*D5*(E5/100),=C5*D5*(E5/100)
+Finance_Regulated_IT,TOTAL,,,,=SUM(G2:G5),=SUM(G2:G5)
+Chemical_Pharma_Process,Deviation investigation savings,120,2250,30,=C7*D7*(E7/100),=C7*D7*(E7/100)
+Chemical_Pharma_Process,Release evidence prep savings,220,240,25,=C8*D8*(E8/100),=C8*D8*(E8/100)
+Chemical_Pharma_Process,Repeat deviation avoidance,15,8000,100,=C9*D9*(E9/100),=C9*D9*(E9/100)
+Chemical_Pharma_Process,Coordination and rework savings,90,500,35,=C10*D10*(E10/100),=C10*D10*(E10/100)
+Chemical_Pharma_Process,TOTAL,,,,=SUM(G7:G10),=SUM(G7:G10)
+Aeronautical_Avionics,Verification prep savings,10,21000,30,=C12*D12*(E12/100),=C12*D12*(E12/100)
+Aeronautical_Avionics,Review rework reduction,12,18000,50,=C13*D13*(E13/100),=C13*D13*(E13/100)
+Aeronautical_Avionics,Change impact analysis savings,70,2560,40,=C14*D14*(E14/100),=C14*D14*(E14/100)
+Aeronautical_Avionics,Coordination overhead savings,80,700,30,=C15*D15*(E15/100),=C15*D15*(E15/100)
+Aeronautical_Avionics,TOTAL,,,,=SUM(G12:G15),=SUM(G12:G15)
+Software_Platform_SRE,Incident handling savings,30,4800,20,=C17*D17*(E17/100),=C17*D17*(E17/100)
+Software_Platform_SRE,Change failure reduction,30,3500,100,=C18*D18*(E18/100),=C18*D18*(E18/100)
+Software_Platform_SRE,Postmortem cycle savings,80,780,35,=C19*D19*(E19/100),=C19*D19*(E19/100)
+Software_Platform_SRE,Glue and rework reduction,140,260,30,=C20*D20*(E20/100),=C20*D20*(E20/100)
+Software_Platform_SRE,TOTAL,,,,=SUM(G17:G20),=SUM(G17:G20)
+Assumptions,Annual_Commercial_Cost_USD,,,,,
+Finance_Regulated_IT,120000,,,,,
+Chemical_Pharma_Process,150000,,,,,
+Aeronautical_Avionics,140000,,,,,
+Software_Platform_SRE,90000,,,,,
+Output,ROI_Formula,,,"ROI=(AnnualBenefit-AnnualCost)/AnnualCost",,
+Output,Payback_Months_Formula,,,"PaybackMonths=AnnualCost/(AnnualBenefit/12)",,

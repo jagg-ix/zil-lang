@@ -17,6 +17,8 @@ USE BFC_BACKEND_CAP(b_clj_main, incremental).
 USE BFC_BACKEND_CAP(b_clj_main, emit_tla).
 USE BFC_BACKEND_CAP(b_clj_main, emit_lean4).
 USE BFC_BACKEND_CAP(b_clj_main, check_z3).
+USE BFC_BACKEND_CAP(b_clj_main, check_acl2).
+USE BFC_BACKEND_CAP(b_clj_main, emit_acl2).
 USE BFC_BACKEND_CAP(b_clj_main, ingest_feedback).
 USE BFC_BACKEND_CAP(b_clj_main, artifact_json).
 USE BFC_BACKEND_IO(b_clj_main, input, json).
@@ -24,6 +26,7 @@ USE BFC_BACKEND_IO(b_clj_main, output, json).
 USE BFC_BACKEND_FORMAL_BRIDGE(b_clj_main, tla, direct).
 USE BFC_BACKEND_FORMAL_BRIDGE(b_clj_main, lean4, direct).
 USE BFC_BACKEND_FORMAL_BRIDGE(b_clj_main, z3, direct).
+USE BFC_BACKEND_FORMAL_BRIDGE(b_clj_main, acl2, artifact_log).
 USE BFC_BACKEND_COST(b_clj_main, 120, 15, 500000, 2048).
 
 USE BFC_BACKEND(b_souffle_batch, souffle, batch).
@@ -62,6 +65,10 @@ USE BFC_ARTIFACT_CONSUMER(a_policy_report, b_clj_main).
 USE BFC_ARTIFACT(a_csv_report, csv, uri_csv_report, schema_formal_feedback_v1).
 USE BFC_ARTIFACT_PRODUCER(a_csv_report, z3).
 USE BFC_ARTIFACT_CONSUMER(a_csv_report, b_souffle_batch).
+
+USE BFC_ARTIFACT(a_acl2_log, text, uri_acl2_log, schema_formal_feedback_v1).
+USE BFC_ARTIFACT_PRODUCER(a_acl2_log, acl2).
+USE BFC_ARTIFACT_CONSUMER(a_acl2_log, b_clj_main).
 
 // Invalid artifact format to show schema validation.
 USE BFC_ARTIFACT(a_unknown_format, xml, uri_unknown, schema_formal_feedback_v1).
@@ -112,6 +119,13 @@ USE BFC_OBLIGATION_RUN(o_bridge_missing, run_batch).
 USE BFC_OBLIGATION_REQUIRES_CAP(o_bridge_missing, emit_lean4).
 USE BFC_OBLIGATION_ARTIFACT(o_bridge_missing, a_csv_report).
 
+// Expected: PROVED from ACL2 feedback.
+USE BFC_OBLIGATION(o_acl2_ok, consistency, medium).
+USE BFC_OBLIGATION_RUN(o_acl2_ok, run_main).
+USE BFC_OBLIGATION_TARGET_TOOL(o_acl2_ok, acl2).
+USE BFC_OBLIGATION_REQUIRES_CAP(o_acl2_ok, check_acl2).
+USE BFC_OBLIGATION_ARTIFACT(o_acl2_ok, a_acl2_log).
+
 // Expected: contract error (unknown class).
 USE BFC_OBLIGATION(o_unknown_class, theorem_like, low).
 USE BFC_OBLIGATION_RUN(o_unknown_class, run_main).
@@ -130,6 +144,7 @@ USE BFC_FEEDBACK(f_conditional_ok, run_main, o_conditional, tla, satisfied, a_tl
 USE BFC_FEEDBACK(f_conditional_timeout, run_main, o_conditional, tla, timeout, a_tla_trace, trace_timeout_102).
 
 USE BFC_FEEDBACK(f_weak_unknown, run_main, o_weak, tla, unknown, a_tla_trace, unknown_due_state_space).
+USE BFC_FEEDBACK(f_acl2_ok, run_main, o_acl2_ok, acl2, satisfied, a_acl2_log, acl2_execstep_qed).
 
 // Feedback schema error examples.
 USE BFC_FEEDBACK(f_bad_tool, run_main, o_proved, coq, satisfied, a_lean_proof, unsupported_tool_example).

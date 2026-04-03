@@ -3,8 +3,9 @@ MODULE sshx11.extension.vscode.
 HOST local_workstation [environment=prod, type=physical].
 HOST remote_extension_host [environment=prod, type=vm].
 
+SERVICE vscode_sshx11_extension [env=prod, criticality=high, uses=[control_plane, data_plane, vpn_overlay, socks_fallback, reverse_socks, webdav_gateway, vscode_profile_gen, extension_host_probe, vscode_configure_widget, vscode_command_surface, vscode_extension_api, ssh_proxy_adapter, ssh_agent_adapter, remote_platform_adapter, ssh_logging_adapter]].
 SERVICE control_plane [env=prod, criticality=high, uses=[data_plane, vpn_overlay]].
-SERVICE data_plane [env=prod, criticality=high, uses=[ssh_tunnel, websocket_bridge]].
+SERVICE data_plane [env=prod, criticality=high, uses=[ssh_tunnel, websocket_bridge, reverse_socks]].
 SERVICE vpn_overlay [env=prod, criticality=high].
 SERVICE ssh_tunnel [env=prod, criticality=high].
 SERVICE websocket_bridge [env=prod, criticality=high].
@@ -13,20 +14,67 @@ SERVICE reverse_socks [env=prod, criticality=high].
 SERVICE webdav_gateway [env=prod, criticality=low].
 SERVICE vscode_profile_gen [env=prod, criticality=high].
 SERVICE extension_host_probe [env=prod, criticality=high].
+SERVICE vscode_configure_widget [env=prod, criticality=high, uses=[widget_location_auto, widget_location_bottom, widget_location_top]].
+SERVICE widget_location_auto [env=prod, criticality=medium].
+SERVICE widget_location_bottom [env=prod, criticality=medium].
+SERVICE widget_location_top [env=prod, criticality=medium].
+SERVICE vscode_command_surface [env=prod, criticality=high, uses=[cmd_configure, cmd_start_services, cmd_stop_services, cmd_status_local, cmd_socks_fallback_start, cmd_vscode_profile_gen, cmd_verify_extension_hosts, cmd_reverse_socks_smoke, cmd_webdav_start, cmd_open_workflows_doc]].
+SERVICE cmd_configure [env=prod, criticality=high].
+SERVICE cmd_start_services [env=prod, criticality=high].
+SERVICE cmd_stop_services [env=prod, criticality=high].
+SERVICE cmd_status_local [env=prod, criticality=high].
+SERVICE cmd_socks_fallback_start [env=prod, criticality=high].
+SERVICE cmd_vscode_profile_gen [env=prod, criticality=high].
+SERVICE cmd_verify_extension_hosts [env=prod, criticality=high].
+SERVICE cmd_reverse_socks_smoke [env=prod, criticality=high].
+SERVICE cmd_webdav_start [env=prod, criticality=medium].
+SERVICE cmd_open_workflows_doc [env=prod, criticality=low].
+SERVICE vscode_extension_api [env=prod, criticality=high, uses=[api_get_settings_snapshot, api_run_ops_command, api_run_named_command, api_show_configure, api_on_did_run_command]].
+SERVICE api_get_settings_snapshot [env=prod, criticality=high].
+SERVICE api_run_ops_command [env=prod, criticality=high].
+SERVICE api_run_named_command [env=prod, criticality=high].
+SERVICE api_show_configure [env=prod, criticality=high].
+SERVICE api_on_did_run_command [env=prod, criticality=medium].
+SERVICE ssh_proxy_adapter [env=prod, criticality=high].
+SERVICE ssh_agent_adapter [env=prod, criticality=high].
+SERVICE remote_platform_adapter [env=prod, criticality=high].
+SERVICE ssh_logging_adapter [env=prod, criticality=medium].
 
 DATASOURCE plane_state [type=file, format=json, path="verification_results/runtime/sshx11_plane_state.json"].
 DATASOURCE reverse_socks_state [type=file, format=json, path="verification_results/runtime/sshx11_reverse_socks_state.json"].
 DATASOURCE ext_host_smoke [type=file, format=json, path="verification_results/stack_audits/sshx11_extension_host_paths_smoke.json"].
+DATASOURCE extension_manifest [type=file, format=json, path="extensions/vscode-sshx11/package.json"].
+DATASOURCE command_map [type=file, format=json, path="extensions/vscode-sshx11/data/command-map.json"].
+DATASOURCE workflow_doc [type=file, format=text, path="docs/workstation/SSHX11_VSCODE_EXTENSION_NETWORK_WORKFLOWS.md"].
+DATASOURCE extension_settings_example [type=file, format=json, path="extensions/vscode-sshx11/examples/sshx11.settings.json"].
 
-LTS_ATOM sshx11_extension_flow [states=#{idle control_ready transport_ready profile_applied reverse_socks_ready extension_host_verified degraded}, initial=idle, transitions={[idle service_start] [control_ready], [control_ready transport_up] [transport_ready], [transport_ready apply_profile] [profile_applied], [profile_applied reverse_socks_start] [reverse_socks_ready], [reverse_socks_ready verify_extension_hosts] [extension_host_verified], [extension_host_verified transport_failure] [degraded], [degraded recover_transport] [transport_ready]}].
+LTS_ATOM sshx11_extension_flow [states=#{idle configured services_running profile_generated extension_host_verified reverse_socks_ready webdav_ready api_ready degraded}, initial=idle, transitions={[idle configure] [configured], [configured service_start] [services_running], [services_running vscode_profile_gen] [profile_generated], [profile_generated verify_extension_hosts] [extension_host_verified], [extension_host_verified reverse_socks_smoke] [reverse_socks_ready], [reverse_socks_ready webdav_start] [webdav_ready], [webdav_ready api_ready] [api_ready], [api_ready transport_failure] [degraded], [degraded recover_transport] [services_running]}].
 
 POLICY relay_gate [condition="ssh_forward_mode_x AND websocket_ready AND l3_ready AND relay_enabled", criticality=high].
 POLICY extension_profile_exclusive [condition="NOT (profile_local AND profile_remote) AND NOT (profile_local AND profile_reverse_socks) AND NOT (profile_remote AND profile_reverse_socks)", criticality=high].
 POLICY reverse_socks_gate [condition="(NOT reverse_socks_required) OR reverse_socks_reachable", criticality=high].
 POLICY webdav_gate [condition="(NOT webdav_required) OR webdav_alive", criticality=low].
+POLICY widget_location_supported [condition="widget_auto OR widget_bottom OR widget_top", criticality=medium].
+POLICY command_catalog_complete [condition="cmd_configure AND cmd_start_services AND cmd_stop_services AND cmd_status_local AND cmd_socks_fallback_start AND cmd_vscode_profile_gen AND cmd_verify_extension_hosts AND cmd_reverse_socks_smoke AND cmd_webdav_start AND cmd_open_workflows_doc", criticality=high].
+POLICY api_contract_complete [condition="api_get_settings_snapshot AND api_run_ops_command AND api_run_named_command AND api_show_configure AND api_on_did_run_command", criticality=high].
+POLICY proxy_agent_remote_platform_compat [condition="ssh_proxy_adapter AND ssh_agent_adapter AND remote_platform_adapter", criticality=high].
+POLICY ssh_logging_controls_available [condition="ssh_logging_adapter", criticality=medium].
+POLICY extension_surface_complete [condition="command_catalog_complete AND api_contract_complete AND widget_location_supported AND extension_profile_exclusive AND reverse_socks_gate AND webdav_gate AND proxy_agent_remote_platform_compat", criticality=high].
+
+QUERY_PACK extension_ops_pack [queries=[critical_services extension_edges api_surface command_surface policy_snapshot], must_return=[critical_services extension_edges api_surface command_surface policy_snapshot]].
+DSL_PROFILE extension_ops_profile [query_pack=extension_ops_pack, planner_hint=high_selectivity_first, verification_chain=[query_ci lts constraint], default_profile=auto].
 
 QUERY critical_services:
 FIND ?s WHERE ?s#kind@entity:service AND ?s#criticality@value:high.
 
 QUERY extension_edges:
 FIND ?e WHERE lts_atom:sshx11_extension_flow#edge@?e.
+
+QUERY api_surface:
+FIND ?api WHERE service:vscode_extension_api#uses@?api.
+
+QUERY command_surface:
+FIND ?cmd WHERE service:vscode_command_surface#uses@?cmd.
+
+QUERY policy_snapshot:
+FIND ?p ?cond WHERE ?p#kind@entity:policy AND ?p#condition@?cond.

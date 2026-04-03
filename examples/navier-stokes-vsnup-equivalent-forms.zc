@@ -1,0 +1,283 @@
+MODULE navier.stokes.vsnup.equivalent.forms.
+
+// Full ZIL catalog of equivalent/formally aliased representations of the
+// Navier-Stokes bottleneck inequality VS <= nu*P gathered across commits.
+//
+// Run:
+//   cd zil
+//   ./bin/zil examples/navier-stokes-vsnup-equivalent-forms.zc
+
+ns:vsnup#kind@entity:ns_bottleneck_catalog.
+ns:vsnup#canonical_target@formula:VS_le_nuP.
+ns:vsnup#canonical_text@value:"VS <= nu*P".
+ns:vsnup#catalog_total_forms@value:23.
+
+// Current metaanalysis snapshot (audit + worklog aligned).
+ns:vsnup:meta#kind@entity:metaanalysis_snapshot.
+ns:vsnup:meta#audit_source@value:"MillenniumAuditCertificate.lean".
+ns:vsnup:meta#worklog_source@value:"docs/workstation/WORKLOG.md".
+ns:vsnup:meta#formal_path_closed_any@value:true.
+ns:vsnup:meta#physical_semantics_closed_any@value:false.
+ns:vsnup:meta#target_program@value:unconditional_constructive_vsnup_all_smooth3d.
+ns:vsnup:meta#main_gap@value:physical_semantics_not_closed_on_load_bearing_route.
+ns:vsnup:meta#root_open_bridge@value:realNoetherToSliceVS_global_contract.
+ns:vsnup:meta#latest_worklog_task@value:ns_wolfram_branch_equation_trace_20260326.
+ns:vsnup:meta#latest_local_ns_gate_status@value:pass.
+ns:vsnup:meta#latest_conformance_bundle_status@value:pass.
+ns:vsnup:meta#latest_conformance_bundle_hard_pass@value:true.
+ns:vsnup:meta#latest_judge_self_test_status@value:rejected.
+ns:vsnup:meta#latest_judge_self_test_reason@value:"submission_contains_axiom_and_extended_l4_manifest_mismatch".
+ns:vsnup:meta#latest_wolfram_catalog_artifact@value:"verification_results/analysis/ns_vsnup_catept_branch_equation_catalog.json".
+ns:vsnup:meta#latest_wolfram_trace_artifact@value:"verification_results/analysis/ns_vsnup_catept_pen_and_paper_trace.json".
+
+MACRO NS_VS_FORM(id, symbol, form_type, bridge_layer, scope, equivalence_key, equivalence_text, source_file, source_line, first_commit, first_commit_date):
+EMIT ns:vsnup:form:{{id}}#kind@entity:ns_vsnup_equivalent_form.
+EMIT ns:vsnup:form:{{id}}#symbol@lean_symbol:{{symbol}}.
+EMIT ns:vsnup:form:{{id}}#form_type@value:{{form_type}}.
+EMIT ns:vsnup:form:{{id}}#bridge_layer@value:{{bridge_layer}}.
+EMIT ns:vsnup:form:{{id}}#scope@value:{{scope}}.
+EMIT ns:vsnup:form:{{id}}#equivalence_key@value:{{equivalence_key}}.
+EMIT ns:vsnup:form:{{id}}#equivalence_text@value:{{equivalence_text}}.
+EMIT ns:vsnup:form:{{id}}#source_file@value:{{source_file}}.
+EMIT ns:vsnup:form:{{id}}#source_line@value:{{source_line}}.
+EMIT ns:vsnup:form:{{id}}#first_commit@git:{{first_commit}}.
+EMIT ns:vsnup:form:{{id}}#first_commit_date@value:{{first_commit_date}}.
+EMIT ns:vsnup:form:{{id}}#equivalent_to@formula:VS_le_nuP.
+ENDMACRO.
+
+MACRO NS_BLOCKER(id, severity, blocker_kind, statement, lean_anchor, owner_lane, next_step):
+EMIT blocker:{{id}}#kind@entity:ns_vsnup_blocker.
+EMIT blocker:{{id}}#severity@value:{{severity}}.
+EMIT blocker:{{id}}#blocker_kind@value:{{blocker_kind}}.
+EMIT blocker:{{id}}#statement@value:{{statement}}.
+EMIT blocker:{{id}}#lean_anchor@value:{{lean_anchor}}.
+EMIT blocker:{{id}}#owner_lane@value:{{owner_lane}}.
+EMIT blocker:{{id}}#next_step@value:{{next_step}}.
+ENDMACRO.
+
+MACRO NS_FORM_META(form_id, meta_role, closure_utility, load_bearing, adds_new_math, physical_readiness):
+EMIT ns:vsnup:form:{{form_id}}#route_role@value:{{meta_role}}.
+EMIT ns:vsnup:form:{{form_id}}#route_closure_utility@value:{{closure_utility}}.
+EMIT ns:vsnup:form:{{form_id}}#route_load_bearing@value:{{load_bearing}}.
+EMIT ns:vsnup:form:{{form_id}}#route_adds_new_math@value:{{adds_new_math}}.
+EMIT ns:vsnup:form:{{form_id}}#route_physical_readiness@value:{{physical_readiness}}.
+ENDMACRO.
+
+MACRO NS_FORM_BLOCKED_BY(form_id, blocker_id):
+EMIT ns:vsnup:form:{{form_id}}#closure_blocked_by@blocker:{{blocker_id}}.
+ENDMACRO.
+
+MACRO NS_NEXT_ROUTE(rank, step_id, title, discharges_blocker, deliverable):
+EMIT route:{{step_id}}#kind@entity:ns_vsnup_next_route_step.
+EMIT route:{{step_id}}#rank@value:{{rank}}.
+EMIT route:{{step_id}}#title@value:{{title}}.
+EMIT route:{{step_id}}#discharges_blocker@blocker:{{discharges_blocker}}.
+EMIT route:{{step_id}}#deliverable@value:{{deliverable}}.
+ENDMACRO.
+
+// 1..23 full catalog
+USE NS_VS_FORM(f01, vs_le_nuP_iff_ratio_guard, theorem_iff, kernel, local, ratio_guard, "VS <= nu*P <-> VS/Omega <= nu*(P/Omega) with Omega>0", "NSVSNuPKernel.lean", 50, 197779d, 2026-03-13).
+USE NS_VS_FORM(f02, ns_imaginary_noether_defect_nonneg_iff_vs_le_nuP, theorem_iff, kernel, local, defect_nonneg, "0 <= (nu*P - VS) <-> VS <= nu*P", "NSVSNuPKernel.lean", 119, 197779d, 2026-03-13).
+USE NS_VS_FORM(f03, vs_le_nuP_iff_enstrophy_rate_nonpos, theorem_iff, kernel, local, enstrophy_rate_nonpos, "VS <= nu*P <-> dOmega/dt <= 0", "NSVSNuPKernel.lean", 132, 197779d, 2026-03-13).
+USE NS_VS_FORM(f04, projectedThetaCoeff_le_nu_iff_vs_le_nuP, theorem_iff, slice_decomposition, local, theta_vs_nup, "theta(t) <= nu <-> VS <= nu*P", "NSSliceDecompositionBridge.lean", 492, 197779d, 2026-03-13).
+USE NS_VS_FORM(f05, vs_le_nuP_iff_vs_over_omega_le_nu_p_over_omega, theorem_iff, vs_omega_kernel, local, ratio_guard_alias, "VS <= nu*P <-> VS/Omega <= nu*(P/Omega)", "VSOmegaPKernel.lean", 31, 197779d, 2026-03-13).
+USE NS_VS_FORM(f06, defect_nonneg_iff_vs_le_nuP, theorem_iff, modular_noether, local, modular_defect_nonneg, "0 <= D_I <-> VS <= nu*P", "Bridges/NSModularNoetherBridge.lean", 51, 197779d, 2026-03-13).
+USE NS_VS_FORM(f07, defect_nonneg_iff_enstrophy_rate_nonpos, theorem_iff, modular_noether, local, modular_defect_rate, "0 <= D_I <-> dOmega/dt <= 0", "Bridges/NSModularNoetherBridge.lean", 58, 197779d, 2026-03-13).
+USE NS_VS_FORM(f08, dirac_mass_nonneg_iff_defect_nonneg, theorem_iff, madelung_adm, local, dirac_mass_defect, "m_D >= 0 <-> D_I >= 0 with rho>0", "Bridges/NSMadelungADMTensorBridge.lean", 122, 1921329, 2026-03-12).
+USE NS_VS_FORM(f09, dirac_mass_nonneg_iff_vs_le_nuP, theorem_iff, madelung_adm, local, dirac_mass_nup, "m_D >= 0 <-> VS <= nu*P with rho>0", "Bridges/NSMadelungADMTensorBridge.lean", 137, 1921329, 2026-03-12).
+USE NS_VS_FORM(f10, signal_integrity_iff_vs_le_nuP, theorem_iff, info_theoretic, local, signal_integrity, "NSSignalIntegrityAtTime <-> VS <= nu*P", "NSInfoTheoreticBottleneckBridge.lean", 149, 197779d, 2026-03-13).
+USE NS_VS_FORM(f11, vs_le_nuP_iff_defect_nonneg, theorem_iff, observational_entropy, local, observational_defect, "VS <= nu*P <-> vsNuPDefect >= 0", "NSObservationalEntropyBridge.lean", 263, 197779d, 2026-03-13).
+USE NS_VS_FORM(f12, millennium_iff_noncomm_nonneg, theorem_iff, observational_entropy, global, global_noncomm_signature, "VSLeNuPAllTrajProp <-> noncommutativity_signature_nonnegative_global", "NSObservationalEntropyBridge.lean", 272, 197779d, 2026-03-13).
+USE NS_VS_FORM(f13, vs_le_nuP_iff_imag_stress_nonneg, theorem_iff, complex_einstein_entropic_matter, local, imag_stress_nonneg, "VS <= nu*P <-> T_I >= 0", "NSComplexEinsteinEntropicMatterBridge.lean", 253, 197779d, 2026-03-13).
+USE NS_VS_FORM(f14, millennium_as_imaginary_stress_positivity, theorem_iff, complex_einstein_entropic_matter, global, global_imag_stress, "VSLeNuPAllTrajProp <-> T_I >= 0 globally", "NSComplexEinsteinEntropicMatterBridge.lean", 262, 197779d, 2026-03-13).
+USE NS_VS_FORM(f15, three_millennium_reformulations_equivalent, theorem_equivalence_bundle, complex_einstein_entropic_matter, global, tri_equivalence_bundle, "Global standard VS<=nuP, observational defect, and imaginary-stress formulations are equivalent", "NSComplexEinsteinEntropicMatterBridge.lean", 277, 197779d, 2026-03-13).
+USE NS_VS_FORM(f16, ns_araki_rel_entropy_decreasing_iff_vs_le_nuP, theorem_iff, araki_relative_entropy, local, araki_entropy_monotone, "d/dt S_rel_NS <= 0 <-> VS <= nu*P", "Bridges/NSArakiRelativeEntropyBridge.lean", 113, 197779d, 2026-03-13).
+USE NS_VS_FORM(f17, imaginary_action_omega_concavity_iff_vs_le_nuP_of_witness, theorem_iff, imag_action_concavity, local, omega_concavity, "d2 S_I_Omega / dt2 <= 0 <-> VS <= nu*P under witness assumptions", "Bridges/NSImaginaryActionConcavityBridge.lean", 115, 197779d, 2026-03-13).
+USE NS_VS_FORM(f18, ns_defect_nonneg_iff_vs_le_nuP_inst, theorem_iff, ricci_cat_ept_instance, local, instance_defect_nonneg, "Instance-level D_I >= 0 <-> VS <= nu*P", "RicciFlowCATEPTBridge.lean", 182, 197779d, 2026-03-13).
+USE NS_VS_FORM(f19, NSSignalIntegrityAtTime, definition_alias, info_theoretic, local, alias_signal_integrity_at_time, "Definition alias naming VS <= nu*P as signal integrity at time", "NSInfoTheoreticBottleneckBridge.lean", 133, 197779d, 2026-03-13).
+USE NS_VS_FORM(f20, NSUniversalSignalIntegrity, definition_alias, info_theoretic, global, alias_signal_integrity_global, "Definition alias naming forall t>=0. VS <= nu*P", "NSInfoTheoreticBottleneckBridge.lean", 140, 197779d, 2026-03-13).
+USE NS_VS_FORM(f21, KMSCompatible, definition_alias, thermodynamic, global, alias_kms_compatibility, "Definition alias naming KMS compatibility as forall t>=0. VS <= nu*P", "ThermodynamicRegularityBridge.lean", 63, 67e32d3, 2026-03-06).
+USE NS_VS_FORM(f22, VSLeNuPAllTrajProp, definition_canonical_predicate, resolution_bridge, global, canonical_universal_predicate, "Canonical universal predicate: forall traj t>=0. VS <= nu*P", "NSVSNuPResolutionBridge.lean", 32, e369744, 2026-03-11).
+USE NS_VS_FORM(f23, realNoetherToSliceVS_global_contract, theorem_root_contract_witness, thermodynamic_root_contract, global, root_contract_witness, "Theorem witness of RealNoetherToSliceVSContract; derived from SA-G4 transport and equivalent in quantifier/inequality shape to canonical VSLeNuPAllTrajProp", "ThermodynamicRegularityBridge.lean", 166, 1702cc7, 2026-03-24).
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CATEGORY-THEORY OVERLAY
+// All blocker-equivalent forms are treated as objects of one category, and each
+// object is isomorphic to the canonical representative f22.
+// This models "same core blocker" as one isomorphism class.
+// ─────────────────────────────────────────────────────────────────────────────
+
+ct:vsnup:category:core_blocker_forms#kind@entity:ct_category.
+ct:vsnup:category:core_blocker_forms#object_kind@value:ns_vsnup_equivalent_form.
+ct:vsnup:category:core_blocker_forms#canonical_object@ns:vsnup:form:f22.
+ct:vsnup:category:core_blocker_forms#morphism_kind@value:equivalence_transport.
+
+ct:vsnup:iso_class:core_blocker#kind@entity:ct_isomorphism_class.
+ct:vsnup:iso_class:core_blocker#in_category@entity:ct:vsnup:category:core_blocker_forms.
+ct:vsnup:iso_class:core_blocker#representative@ns:vsnup:form:f22.
+ct:vsnup:iso_class:core_blocker#semantic_key@formula:VS_le_nuP.
+ct:vsnup:iso_class:core_blocker#claim@value:"All catalogued forms are isomorphic presentations of one blocker contract.".
+
+MACRO NS_CT_CORE_BLOCKER_ISO(form_id):
+EMIT ns:vsnup:form:{{form_id}}#ct_object_in@entity:ct:vsnup:category:core_blocker_forms.
+EMIT ns:vsnup:form:{{form_id}}#ct_iso_class@entity:ct:vsnup:iso_class:core_blocker.
+
+EMIT ct:vsnup:morphism:{{form_id}}_to_f22#kind@entity:ct_morphism.
+EMIT ct:vsnup:morphism:{{form_id}}_to_f22#in_category@entity:ct:vsnup:category:core_blocker_forms.
+EMIT ct:vsnup:morphism:{{form_id}}_to_f22#source@ns:vsnup:form:{{form_id}}.
+EMIT ct:vsnup:morphism:{{form_id}}_to_f22#target@ns:vsnup:form:f22.
+EMIT ct:vsnup:morphism:{{form_id}}_to_f22#witness_kind@value:equivalent_to_VS_le_nuP.
+
+EMIT ct:vsnup:morphism:f22_to_{{form_id}}#kind@entity:ct_morphism.
+EMIT ct:vsnup:morphism:f22_to_{{form_id}}#in_category@entity:ct:vsnup:category:core_blocker_forms.
+EMIT ct:vsnup:morphism:f22_to_{{form_id}}#source@ns:vsnup:form:f22.
+EMIT ct:vsnup:morphism:f22_to_{{form_id}}#target@ns:vsnup:form:{{form_id}}.
+EMIT ct:vsnup:morphism:f22_to_{{form_id}}#witness_kind@value:equivalent_to_VS_le_nuP.
+
+EMIT ct:vsnup:iso_pair:{{form_id}}_f22#kind@entity:ct_isomorphism_pair.
+EMIT ct:vsnup:iso_pair:{{form_id}}_f22#object@ns:vsnup:form:{{form_id}}.
+EMIT ct:vsnup:iso_pair:{{form_id}}_f22#canonical@ns:vsnup:form:f22.
+EMIT ct:vsnup:iso_pair:{{form_id}}_f22#forward@entity:ct:vsnup:morphism:{{form_id}}_to_f22.
+EMIT ct:vsnup:iso_pair:{{form_id}}_f22#inverse@entity:ct:vsnup:morphism:f22_to_{{form_id}}.
+EMIT ct:vsnup:iso_pair:{{form_id}}_f22#in_iso_class@entity:ct:vsnup:iso_class:core_blocker.
+ENDMACRO.
+
+// Every form belongs to the same iso-class via canonical object f22.
+USE NS_CT_CORE_BLOCKER_ISO(f01).
+USE NS_CT_CORE_BLOCKER_ISO(f02).
+USE NS_CT_CORE_BLOCKER_ISO(f03).
+USE NS_CT_CORE_BLOCKER_ISO(f04).
+USE NS_CT_CORE_BLOCKER_ISO(f05).
+USE NS_CT_CORE_BLOCKER_ISO(f06).
+USE NS_CT_CORE_BLOCKER_ISO(f07).
+USE NS_CT_CORE_BLOCKER_ISO(f08).
+USE NS_CT_CORE_BLOCKER_ISO(f09).
+USE NS_CT_CORE_BLOCKER_ISO(f10).
+USE NS_CT_CORE_BLOCKER_ISO(f11).
+USE NS_CT_CORE_BLOCKER_ISO(f12).
+USE NS_CT_CORE_BLOCKER_ISO(f13).
+USE NS_CT_CORE_BLOCKER_ISO(f14).
+USE NS_CT_CORE_BLOCKER_ISO(f15).
+USE NS_CT_CORE_BLOCKER_ISO(f16).
+USE NS_CT_CORE_BLOCKER_ISO(f17).
+USE NS_CT_CORE_BLOCKER_ISO(f18).
+USE NS_CT_CORE_BLOCKER_ISO(f19).
+USE NS_CT_CORE_BLOCKER_ISO(f20).
+USE NS_CT_CORE_BLOCKER_ISO(f21).
+USE NS_CT_CORE_BLOCKER_ISO(f22).
+USE NS_CT_CORE_BLOCKER_ISO(f23).
+
+RULE ct_core_blocker_single_class_from_equivalence:
+IF ?f#kind@entity:ns_vsnup_equivalent_form AND ?f#equivalent_to@formula:VS_le_nuP
+THEN ?f#ct_object_in@entity:ct:vsnup:category:core_blocker_forms AND ?f#ct_iso_class@entity:ct:vsnup:iso_class:core_blocker.
+
+// Blockers: why the route is still not strictly closed in physical semantics.
+USE NS_BLOCKER(b01, high, strict_physical_closure_gap, "formal_path_closed_any=true while physical_semantics_closed_any=false on current Path C audit", "MillenniumAuditCertificate.path_C_not_physically_closed", semantic_hardening_gate, "remove remaining load-bearing strict-physical blockers from Path C route").
+USE NS_BLOCKER(b02, medium, automation_judge_contract_gap, "judge self-test currently rejects submission (axiom in NSMillenniumClosed and extended L4 manifest mismatch)", "tools/verification/judge-verify.sh", verification_pipeline, "align judge policy/contracts with current theorem graph and submission mode").
+USE NS_BLOCKER(b03, high, root_contract_open_bridge, "realNoetherToSliceVS_global_contract remains the single irreducible open root for universal VS<=nu*P", "ThermodynamicRegularityBridge.realNoetherToSliceVS_global_contract", thermodynamic_root_contract, "discharge root contract or replace with constructive non-circular theorem route").
+USE NS_BLOCKER(b04, medium, continuation_internalization_gap, "bkm_t3_global_existence remains theorem-level but epistemically bridge-backed in strict closure framing", "BKMBackwardBridge.bkm_t3_global_existence", bkm_internalization, "replace bridge assumptions with deeper internalized continuation derivation").
+USE NS_BLOCKER(b05, high, pde_semantics_concretization_gap, "SatisfiesNSPDE and function-space contracts remain in compatibility-layer semantics for strict physical closure", "WORKLOG.ns_target_concretize_pde_semantics_t3", pde_semantics, "tie operators and spaces end-to-end to concrete T3 weak/physical semantics").
+
+// Default metaanalysis classification by form type.
+RULE form_meta_default_theorem_iff:
+IF ?f#kind@entity:ns_vsnup_equivalent_form AND ?f#form_type@value:theorem_iff
+THEN ?f#meta_role@value:equivalence_theorem AND ?f#closure_utility@value:medium AND ?f#load_bearing@value:indirect AND ?f#adds_new_math@value:no AND ?f#physical_readiness@value:depends_on_anchor_route.
+
+RULE form_meta_default_alias:
+IF ?f#kind@entity:ns_vsnup_equivalent_form AND ?f#form_type@value:definition_alias
+THEN ?f#meta_role@value:naming_alias AND ?f#closure_utility@value:low AND ?f#load_bearing@value:no AND ?f#adds_new_math@value:no AND ?f#physical_readiness@value:symbolic.
+
+RULE form_meta_default_bundle:
+IF ?f#kind@entity:ns_vsnup_equivalent_form AND ?f#form_type@value:theorem_equivalence_bundle
+THEN ?f#meta_role@value:equivalence_bundle AND ?f#closure_utility@value:medium AND ?f#load_bearing@value:indirect AND ?f#adds_new_math@value:no AND ?f#physical_readiness@value:depends_on_anchor_route.
+
+RULE form_meta_default_canonical:
+IF ?f#kind@entity:ns_vsnup_equivalent_form AND ?f#form_type@value:definition_canonical_predicate
+THEN ?f#meta_role@value:canonical_target_contract AND ?f#closure_utility@value:high AND ?f#load_bearing@value:target_contract AND ?f#adds_new_math@value:no AND ?f#physical_readiness@value:blocked.
+
+// Targeted overrides for high-value route forms.
+USE NS_FORM_META(f03, kernel_monotonicity_gate, high, indirect, no, depends_on_enstrophy_physicalization).
+USE NS_FORM_META(f04, projection_to_global_contract, high, indirect, no, depends_on_enstrophy_physicalization).
+USE NS_FORM_META(f22, canonical_target_contract, highest, target_contract, no, blocked_by_physical_semantics_gap).
+USE NS_FORM_META(f23, root_contract_open_bridge, highest, root_open_bridge, no, open_root).
+
+// Direct blocker links to load-bearing and high-value forms.
+USE NS_FORM_BLOCKED_BY(f22, b01).
+USE NS_FORM_BLOCKED_BY(f22, b03).
+USE NS_FORM_BLOCKED_BY(f22, b04).
+USE NS_FORM_BLOCKED_BY(f22, b05).
+USE NS_FORM_BLOCKED_BY(f23, b01).
+USE NS_FORM_BLOCKED_BY(f23, b03).
+USE NS_FORM_BLOCKED_BY(f23, b04).
+USE NS_FORM_BLOCKED_BY(f23, b05).
+USE NS_FORM_BLOCKED_BY(f03, b05).
+USE NS_FORM_BLOCKED_BY(f04, b05).
+USE NS_FORM_BLOCKED_BY(f12, b01).
+USE NS_FORM_BLOCKED_BY(f14, b01).
+USE NS_FORM_BLOCKED_BY(f15, b01).
+USE NS_FORM_BLOCKED_BY(f22, b02).
+USE NS_FORM_BLOCKED_BY(f23, b02).
+
+// Ranked next-best route to turn equivalence inventory into closure progress.
+USE NS_NEXT_ROUTE(1, r01_root_contract, "Discharge or replace realNoether root contract with constructive non-circular route", b03, "theorem-level replacement for realNoetherToSliceVS_global_contract").
+USE NS_NEXT_ROUTE(2, r02_strict_physical_audit, "Close strict physical audit after root discharge and semantic hardening", b01, "physical_semantics_closed pathCCertificate = true").
+USE NS_NEXT_ROUTE(3, r03_pde_semantics, "Concretize PDE operators and function-space semantics end-to-end", b05, "physical SatisfiesNSPDE + function-space membership on concrete T3 carrier").
+USE NS_NEXT_ROUTE(4, r04_bkm_internalization, "Reduce continuation bridge reliance in strict closure framing", b04, "deeper internalized continuation pipeline replacing bridge assumptions").
+USE NS_NEXT_ROUTE(5, r05_judge_parity, "Align judge automation contracts with current theorem graph and submission policy", b02, "judge self-test acceptance for intended submission profile").
+
+route:r01_root_contract#advances_form@ns:vsnup:form:f22.
+route:r01_root_contract#advances_form@ns:vsnup:form:f23.
+route:r02_strict_physical_audit#advances_form@ns:vsnup:form:f22.
+route:r03_pde_semantics#advances_form@ns:vsnup:form:f22.
+route:r03_pde_semantics#advances_form@ns:vsnup:form:f03.
+route:r03_pde_semantics#advances_form@ns:vsnup:form:f04.
+route:r04_bkm_internalization#advances_form@ns:vsnup:form:f22.
+route:r05_judge_parity#advances_form@ns:vsnup:form:f22.
+
+QUERY forms_catalog:
+FIND ?form ?symbol ?form_type ?bridge ?scope ?source_file ?source_line ?first_commit WHERE ?form#kind@entity:ns_vsnup_equivalent_form AND ?form#symbol@?symbol AND ?form#form_type@?form_type AND ?form#bridge_layer@?bridge AND ?form#scope@?scope AND ?form#source_file@?source_file AND ?form#source_line@?source_line AND ?form#first_commit@?first_commit.
+
+QUERY forms_with_text:
+FIND ?symbol ?equivalence_text WHERE ?form#kind@entity:ns_vsnup_equivalent_form AND ?form#symbol@?symbol AND ?form#equivalence_text@?equivalence_text.
+
+QUERY iff_forms:
+FIND ?symbol ?bridge WHERE ?form#kind@entity:ns_vsnup_equivalent_form AND ?form#form_type@value:theorem_iff AND ?form#symbol@?symbol AND ?form#bridge_layer@?bridge.
+
+QUERY alias_forms:
+FIND ?symbol ?bridge WHERE ?form#kind@entity:ns_vsnup_equivalent_form AND ?form#form_type@value:definition_alias AND ?form#symbol@?symbol AND ?form#bridge_layer@?bridge.
+
+QUERY global_scope_forms:
+FIND ?symbol ?form_type WHERE ?form#kind@entity:ns_vsnup_equivalent_form AND ?form#scope@value:global AND ?form#symbol@?symbol AND ?form#form_type@?form_type.
+
+QUERY forms_by_commit:
+FIND ?first_commit ?symbol WHERE ?form#kind@entity:ns_vsnup_equivalent_form AND ?form#first_commit@?first_commit AND ?form#symbol@?symbol.
+
+QUERY ct_core_blocker_objects:
+FIND ?form ?symbol WHERE ?form#ct_object_in@entity:ct:vsnup:category:core_blocker_forms AND ?form#symbol@?symbol.
+
+QUERY ct_core_blocker_iso_class_members:
+FIND ?form ?symbol ?iso_class WHERE ?form#kind@entity:ns_vsnup_equivalent_form AND ?form#symbol@?symbol AND ?form#ct_iso_class@?iso_class.
+
+QUERY ct_isomorphisms_to_canonical_f22:
+FIND ?form ?symbol ?forward ?inverse WHERE ?iso#kind@entity:ct_isomorphism_pair AND ?iso#object@?form AND ?iso#canonical@ns:vsnup:form:f22 AND ?iso#forward@?forward AND ?iso#inverse@?inverse AND ?form#symbol@?symbol.
+
+QUERY blockers_catalog:
+FIND ?blocker ?severity ?kind ?statement ?lean_anchor ?owner_lane ?next_step WHERE ?blocker#kind@entity:ns_vsnup_blocker AND ?blocker#severity@?severity AND ?blocker#blocker_kind@?kind AND ?blocker#statement@?statement AND ?blocker#lean_anchor@?lean_anchor AND ?blocker#owner_lane@?owner_lane AND ?blocker#next_step@?next_step.
+
+QUERY blocked_forms_matrix:
+FIND ?symbol ?meta_role ?load_bearing ?blocker ?statement WHERE ?form#kind@entity:ns_vsnup_equivalent_form AND ?form#symbol@?symbol AND ?form#meta_role@?meta_role AND ?form#load_bearing@?load_bearing AND ?form#closure_blocked_by@?blocker AND ?blocker#statement@?statement.
+
+QUERY why_blocked_summary:
+FIND ?blocker ?statement ?lean_anchor WHERE ?blocker#kind@entity:ns_vsnup_blocker AND ?blocker#statement@?statement AND ?blocker#lean_anchor@?lean_anchor.
+
+QUERY load_bearing_forms:
+FIND ?symbol ?closure_utility ?physical_readiness WHERE ?form#kind@entity:ns_vsnup_equivalent_form AND ?form#load_bearing@value:target_contract AND ?form#symbol@?symbol AND ?form#closure_utility@?closure_utility AND ?form#physical_readiness@?physical_readiness.
+
+QUERY next_best_route:
+FIND ?rank ?step ?title ?blocker ?deliverable WHERE ?step#kind@entity:ns_vsnup_next_route_step AND ?step#rank@?rank AND ?step#title@?title AND ?step#discharges_blocker@?blocker AND ?step#deliverable@?deliverable.
+
+QUERY next_route_for_canonical_target:
+FIND ?rank ?step ?title WHERE ?step#kind@entity:ns_vsnup_next_route_step AND ?step#rank@?rank AND ?step#title@?title AND ?step#advances_form@ns:vsnup:form:f22.
+
+QUERY route_focus_forms:
+FIND ?symbol ?route_role ?route_utility ?route_readiness WHERE ?form#kind@entity:ns_vsnup_equivalent_form AND ?form#symbol@?symbol AND ?form#route_role@?route_role AND ?form#route_closure_utility@?route_utility AND ?form#route_physical_readiness@?route_readiness.

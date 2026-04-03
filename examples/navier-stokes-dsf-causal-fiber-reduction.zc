@@ -1,0 +1,108 @@
+MODULE navier.stokes.dsf.causal.fiber.reduction.
+
+// DSF causal-fiber reduction model:
+//   causal-poset coherence + A/B/C/D obligation discharge + bridge
+//   => canonical VS<=nuP readiness.
+//
+// Run:
+//   cd zil
+//   ./bin/zil examples/navier-stokes-dsf-causal-fiber-reduction.zc
+
+reduction:dsf_causal_fiber#kind@entity:ns_reduction_contract.
+reduction:dsf_causal_fiber#target@value:CanonicalVSNuPTargetProp.
+reduction:dsf_causal_fiber#canonical_target_symbol@value:"NavierStokes.Millennium.CanonicalVSNuPTargetProp".
+
+// Causal-poset/fiber coherence gate.
+gate:causal_poset_coherence#kind@entity:reduction_gate.
+gate:causal_poset_coherence#status@value:open.
+gate:causal_poset_coherence#lean_anchor@value:"NavierStokes.Millennium.CausalYonedaCoherenceContract".
+gate:causal_poset_coherence#requirement@value:"spacetime preorder + functorial fiber transport respects id/comp laws".
+
+// Structural invariants: preorder antisymmetry reflection.
+gate:antisymmetry_reflection#kind@entity:reduction_gate.
+gate:antisymmetry_reflection#status@value:open.
+gate:antisymmetry_reflection#lean_anchor@value:"NavierStokes.Millennium.PreorderAntisymmetryContract".
+gate:antisymmetry_reflection#requirement@value:"if x<=y and y<=x, collapse into explicit equivalence class (posetal reflection)".
+
+// Structural invariants: groupoid inequality laws.
+gate:groupoid_inequality_invariants#kind@entity:reduction_gate.
+gate:groupoid_inequality_invariants#status@value:open.
+gate:groupoid_inequality_invariants#lean_anchor@value:"NavierStokes.Millennium.GroupoidInequalityInvariantContract".
+gate:groupoid_inequality_invariants#requirement@value:"defect identity/inverse/subadditivity invariants on DSF groupoid sector".
+
+// Structural invariants: homotopy/naturality compatibility.
+gate:homotopy_naturality#kind@entity:reduction_gate.
+gate:homotopy_naturality#status@value:open.
+gate:homotopy_naturality#lean_anchor@value:"NavierStokes.Millennium.GroupoidHomotopyInequalityContract".
+gate:homotopy_naturality#requirement@value:"natural-transformation (homotopy-style) invariance preserves defect measure under functor maps".
+
+// Bridge gate from closed DSF obligations to canonical target.
+gate:dsf_to_vsnup_bridge#kind@entity:reduction_gate.
+gate:dsf_to_vsnup_bridge#status@value:open.
+gate:dsf_to_vsnup_bridge#lean_anchor@value:"NavierStokes.Millennium.DSFToVSContract".
+
+// Category-theory overlay for the reduction pipeline.
+ct:cat:causal_base#kind@entity:ct_category.
+ct:cat:causal_base#description@value:"thin category from spacetime partial order".
+ct:cat:fiber_transport#kind@entity:ct_category.
+ct:cat:fiber_transport#description@value:"fibered state transport along causal arrows".
+
+ct:fun:transport_over_causal#kind@entity:ct_functor.
+ct:fun:transport_over_causal#from_cat@entity:ct:cat:causal_base.
+ct:fun:transport_over_causal#to_cat@entity:ct:cat:fiber_transport.
+ct:fun:transport_over_causal#law_identity@value:required.
+ct:fun:transport_over_causal#law_composition@value:required.
+
+MACRO DSF_OBL(id, group, title, lean_anchor):
+EMIT ob:{{id}}#kind@entity:dsf_obligation.
+EMIT ob:{{id}}#group@value:{{group}}.
+EMIT ob:{{id}}#title@value:{{title}}.
+EMIT ob:{{id}}#status@value:open.
+EMIT ob:{{id}}#lean_anchor@value:{{lean_anchor}}.
+EMIT reduction:dsf_causal_fiber#requires_obligation@ob:{{id}}.
+ENDMACRO.
+
+USE DSF_OBL(oA1, A, "vorticity transport lift", "GapTransportObligation.A_vorticity_transport_lift").
+USE DSF_OBL(oA2, A, "topological signature functoriality", "GapTransportObligation.A_topological_signature_functoriality").
+USE DSF_OBL(oA3, A, "rotational left inverse on 3D sector", "GapTransportObligation.A_rotational_left_inverse_on_3d_sector").
+USE DSF_OBL(oB1, B, "uniform Sobolev L2->Linf transfer", "GapTransportObligation.B_uniform_sobolev_L2_to_Linf_transfer").
+USE DSF_OBL(oB2, B, "energy to vorticity upgrade under general potentials", "GapTransportObligation.B_energy_to_vorticity_upgrade_under_general_potentials").
+USE DSF_OBL(oC1, C, "functional measure construction on field space", "GapTransportObligation.C_functional_measure_construction_on_field_space").
+USE DSF_OBL(oC2, C, "measure pushforward wellposed", "GapTransportObligation.C_measure_pushforward_wellposed").
+USE DSF_OBL(oC3, C, "functional cole-hopf transfer", "GapTransportObligation.C_functional_cole_hopf_transfer").
+USE DSF_OBL(oD1, D, "BKM continuation from global vorticity control", "GapTransportObligation.D_bkm_continuation_from_global_vorticity_control").
+USE DSF_OBL(oD2, D, "global regularity from continuation", "GapTransportObligation.D_global_regularity_from_continuation").
+
+RULE obligation_unresolved_default:
+IF ?o#kind@entity:dsf_obligation AND ?o#status@?s AND NOT ?o#status@value:done
+THEN ?o#is_unresolved@value:true.
+
+RULE dsf_transport_closed_if_all_obligations_done:
+IF ob:oA1#status@value:done AND ob:oA2#status@value:done AND ob:oA3#status@value:done AND ob:oB1#status@value:done AND ob:oB2#status@value:done AND ob:oC1#status@value:done AND ob:oC2#status@value:done AND ob:oC3#status@value:done AND ob:oD1#status@value:done AND ob:oD2#status@value:done
+THEN gate:dsf_transport_closed#kind@entity:reduction_gate AND gate:dsf_transport_closed#value@value:true.
+
+RULE canonical_target_ready_if_pipeline_gates_done:
+IF gate:causal_poset_coherence#status@value:done AND gate:antisymmetry_reflection#status@value:done AND gate:groupoid_inequality_invariants#status@value:done AND gate:homotopy_naturality#status@value:done AND gate:dsf_to_vsnup_bridge#status@value:done AND gate:dsf_transport_closed#value@value:true
+THEN reduction:dsf_causal_fiber#canonical_target_ready@value:true.
+
+RULE canonical_target_blocked_if_any_obligation_unresolved:
+IF ?o#is_unresolved@value:true
+THEN reduction:dsf_causal_fiber#canonical_target_ready@value:false.
+
+QUERY dsf_obligation_catalog:
+FIND ?ob ?group ?title ?status ?anchor WHERE ?ob#kind@entity:dsf_obligation AND ?ob#group@?group AND ?ob#title@?title AND ?ob#status@?status AND ?ob#lean_anchor@?anchor.
+
+QUERY dsf_unresolved_by_group:
+FIND ?group ?ob ?title WHERE ?ob#kind@entity:dsf_obligation AND ?ob#is_unresolved@value:true AND ?ob#group@?group AND ?ob#title@?title.
+
+QUERY reduction_gates:
+FIND ?gate ?status ?anchor WHERE ?gate#kind@entity:reduction_gate AND ?gate#status@?status AND ?gate#lean_anchor@?anchor.
+
+QUERY structural_invariant_gates:
+FIND ?gate ?status ?requirement ?anchor WHERE ?gate#kind@entity:reduction_gate AND ?gate#status@?status AND ?gate#requirement@?requirement AND ?gate#lean_anchor@?anchor.
+
+QUERY dsf_transport_closed_status:
+FIND ?v WHERE gate:dsf_transport_closed#value@?v.
+
+QUERY canonical_target_status:
+FIND ?ready WHERE reduction:dsf_causal_fiber#canonical_target_ready@?ready.

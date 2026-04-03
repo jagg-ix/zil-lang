@@ -1,0 +1,160 @@
+MODULE navier.stokes.physical.closure.gaps.
+
+// Formalization of "formal closed vs physical not closed" as explicit
+// physics-facing discharge obligations.
+//
+// Run:
+//   cd zil
+//   ./bin/zil examples/navier-stokes-physical-closure-gaps.zc
+//   ./bin/zil query-ci examples/navier-stokes-physical-closure-gaps.zc - - ns_progress_profile
+//   ./bin/zil query-ci examples/navier-stokes-physical-closure-gaps.zc - - ns_release_gate_profile
+
+ns:physical_closure#kind@entity:physical_closure_contract.
+ns:physical_closure#target@value:unconditional_constructive_vsnup_all_smooth3d.
+ns:physical_closure#formal_path_closed@value:true.
+ns:physical_closure#physical_semantics_closed@value:false.
+ns:physical_closure#comment@value:"Formal chain closes in current abstraction; physical adequacy requires discharging all load-bearing shim gaps.".
+
+MACRO PHYS_GAP(id, title, category, severity, current_model, required_discharge, owner_lane, anchor_file, anchor_symbol):
+EMIT gap:{{id}}#kind@entity:physical_semantics_gap.
+EMIT gap:{{id}}#title@value:{{title}}.
+EMIT gap:{{id}}#category@value:{{category}}.
+EMIT gap:{{id}}#severity@value:{{severity}}.
+EMIT gap:{{id}}#status@value:open.
+EMIT gap:{{id}}#current_model@value:{{current_model}}.
+EMIT gap:{{id}}#required_discharge@value:{{required_discharge}}.
+EMIT gap:{{id}}#owner_lane@value:{{owner_lane}}.
+EMIT gap:{{id}}#anchor_file@value:{{anchor_file}}.
+EMIT gap:{{id}}#anchor_symbol@value:{{anchor_symbol}}.
+EMIT ns:physical_closure#requires_gap@gap:{{id}}.
+ENDMACRO.
+
+MACRO PHYS_STEP(id, rank, title, closes_gap, deliverable):
+EMIT step:{{id}}#kind@entity:physical_discharge_step.
+EMIT step:{{id}}#rank@value:{{rank}}.
+EMIT step:{{id}}#title@value:{{title}}.
+EMIT step:{{id}}#closes_gap@gap:{{closes_gap}}.
+EMIT step:{{id}}#deliverable@value:{{deliverable}}.
+ENDMACRO.
+
+// Gap 1: observable realism.
+USE PHYS_GAP(g01_observable_realism, "Observable realism (legacy observables on load-bearing path)", observable_semantics, high, "Carrier enstrophy is now concrete/aligned; remaining legacy observable semantics are tracked via strict shim audit.", "Keep observable alignment theoremized and avoid regression to zero-placeholder or opaque-only load-bearing use.", physical_observables, "AxiomaticEstimates.lean", "enstrophy/vorticityLinfty").
+
+// Gap 2: alignment consistency.
+USE PHYS_GAP(g02_alignment_consistency, "PhysicalMode0 alignment consistency", observable_alignment, high, "Parseval/alignment route is now discharged in current model.", "Preserve theoremized parseval/alignment route and keep strict contracts green.", physical_observables, "NSEnstrophyPhysicalizationBridge.lean", "enstrophyGlobalParsevalAlignment_discharged").
+
+// Gap 3: non-placeholder witness.
+USE PHYS_GAP(g03_nonplaceholder_witness, "Non-placeholder physical witness", witness_semantics, high, "Strong Stage-218 bridge route is theoremized/discharged in current model.", "Preserve strong bridge theorem route and prevent regression to impossible-current-model branch.", constructive_vsnup, "NSEnstrophyPhysicalizationBridge.lean", "BridgeTargetLinearEntropicControlPhysicalMode0Strong_discharged").
+
+// Gap 4: PDE operator semantics.
+USE PHYS_GAP(g04_pde_operator_semantics, "PDE operator semantics end-to-end", pde_semantics, high, "Current nsGrad/nsDiv/nsLaplace/nsConvection are compatibility surrogates and nsDdt is placeholder.", "Provide full weak/physical T3 operator semantics and transport existing proofs.", pde_semantics, "AxiomaticEstimates.lean", "nsGrad/nsDiv/nsLaplace/nsConvection/nsDdt").
+
+// Gap 5: function-space semantics.
+USE PHYS_GAP(g05_function_space_semantics, "Function-space semantics end-to-end", function_space_semantics, high, "Current nsVelocityMem/nsPressureMem/nsDivFree are compatibility envelopes.", "Replace with concrete Sobolev/Fourier-space conditions and discharge transport lemmas.", function_spaces, "AxiomaticEstimates.lean", "nsVelocityMem/nsPressureMem/nsDivFree").
+
+// Gap 6: continuation internalization.
+USE PHYS_GAP(g06_continuation_internalization, "Internalize continuation chain", continuation_semantics, medium, "BKM/FK continuation remains epistemically imported/partiallyVerified in audit framing.", "Internal Lean derivation of local existence + BKM continuation (or equivalent trusted formal package) for strict internal closure target.", continuation_bridge, "MillenniumAuditCertificate.lean", "bkmT3AxiomRecord").
+
+// Progress states/evidence should be supplied by the mutable overlay:
+// examples/navier_stokes_physical_closure/lib/20-progress-current.zc
+// The base contract remains status-agnostic.
+
+// Ranked discharge plan.
+USE PHYS_STEP(s01_enstrophy_physicalization, 1, "Concretize enstrophy carrier and remove zero-placeholder dependence", g01_observable_realism, "concrete enstrophy/vorticity observables on load-bearing path").
+USE PHYS_STEP(s02_alignment, 2, "Re-establish PhysicalMode0 alignment against physical observable instance", g02_alignment_consistency, "proof of PhysicalMode0ObsAlignment without contradiction").
+USE PHYS_STEP(s03_nonplaceholder, 3, "Discharge positive physical witness", g03_nonplaceholder_witness, "BridgeTargetLinearEntropicControlPhysicalMode0Strong witness path active").
+USE PHYS_STEP(s04_pde_semantics, 4, "Concretize PDE operator semantics", g04_pde_operator_semantics, "physical weak-form-compatible SatisfiesNSPDE path").
+USE PHYS_STEP(s05_function_spaces, 5, "Concretize function-space membership semantics", g05_function_space_semantics, "physical Sobolev/Fourier membership in closure route").
+USE PHYS_STEP(s06_internalize_continuation, 6, "Internalize continuation dependencies", g06_continuation_internalization, "epistemic upgrade toward fully internal strict closure").
+
+// Derived status facts.
+RULE physical_gap_effective_done:
+IF ?gap#status@value:done
+THEN ?gap#effective_status@value:done.
+
+RULE physical_gap_effective_blocked:
+IF ?gap#status@value:blocked AND NOT ?gap#status@value:done
+THEN ?gap#effective_status@value:blocked.
+
+RULE physical_gap_effective_in_progress:
+IF ?gap#status@value:in_progress AND NOT ?gap#status@value:done AND NOT ?gap#status@value:blocked
+THEN ?gap#effective_status@value:in_progress.
+
+RULE physical_gap_effective_open:
+IF ?gap#status@value:open AND NOT ?gap#status@value:done AND NOT ?gap#status@value:blocked AND NOT ?gap#status@value:in_progress
+THEN ?gap#effective_status@value:open.
+
+RULE physical_gap_unresolved:
+IF ?gap#kind@entity:physical_semantics_gap AND ?gap#effective_status@?status AND NOT ?gap#effective_status@value:done
+THEN ?gap#is_unresolved@value:true.
+
+RULE physical_gap_blocker:
+IF ?gap#kind@entity:physical_semantics_gap AND ?gap#severity@value:high AND ?gap#is_unresolved@value:true
+THEN ?gap#is_blocker@value:true.
+
+RULE physical_gap_missing_done_evidence:
+IF ?gap#kind@entity:physical_semantics_gap AND ?gap#effective_status@value:done AND NOT ?gap#has_evidence@value:true
+THEN ?gap#missing_done_evidence@value:true.
+
+RULE physical_not_closed_if_any_unresolved:
+IF ns:physical_closure#requires_gap@?gap AND ?gap#is_unresolved@value:true
+THEN ns:physical_closure#adequacy_status@value:not_closed.
+
+RULE physical_not_closed_if_missing_done_evidence:
+IF ?gap#missing_done_evidence@value:true
+THEN ns:physical_closure#adequacy_status@value:not_closed.
+
+RULE strict_close_ready_if_all_gaps_done_and_evidenced:
+IF gap:g01_observable_realism#effective_status@value:done AND gap:g01_observable_realism#has_evidence@value:true AND gap:g02_alignment_consistency#effective_status@value:done AND gap:g02_alignment_consistency#has_evidence@value:true AND gap:g03_nonplaceholder_witness#effective_status@value:done AND gap:g03_nonplaceholder_witness#has_evidence@value:true AND gap:g04_pde_operator_semantics#effective_status@value:done AND gap:g04_pde_operator_semantics#has_evidence@value:true AND gap:g05_function_space_semantics#effective_status@value:done AND gap:g05_function_space_semantics#has_evidence@value:true AND gap:g06_continuation_internalization#effective_status@value:done AND gap:g06_continuation_internalization#has_evidence@value:true
+THEN ns:physical_closure#strict_close_ready@value:true.
+
+RULE physical_closed_if_strict_ready:
+IF ns:physical_closure#strict_close_ready@value:true
+THEN ns:physical_closure#adequacy_status@value:closed.
+
+RULE strict_gate_blocker_from_unresolved:
+IF ?gap#is_unresolved@value:true
+THEN ?gap#strict_gate_reason@value:unresolved_status.
+
+RULE strict_gate_blocker_from_missing_evidence:
+IF ?gap#missing_done_evidence@value:true
+THEN ?gap#strict_gate_reason@value:missing_done_evidence.
+
+QUERY physical_gap_catalog:
+FIND ?gap ?title ?category ?severity ?status ?owner ?anchor_file ?anchor_symbol WHERE ?gap#kind@entity:physical_semantics_gap AND ?gap#title@?title AND ?gap#category@?category AND ?gap#severity@?severity AND ?gap#effective_status@?status AND ?gap#owner_lane@?owner AND ?gap#anchor_file@?anchor_file AND ?gap#anchor_symbol@?anchor_symbol.
+
+QUERY blocking_physical_gaps:
+FIND ?gap ?title ?required_discharge WHERE ?gap#is_blocker@value:true AND ?gap#title@?title AND ?gap#required_discharge@?required_discharge.
+
+QUERY unresolved_physical_gaps:
+FIND ?gap ?title ?status WHERE ns:physical_closure#requires_gap@?gap AND ?gap#is_unresolved@value:true AND ?gap#title@?title AND ?gap#effective_status@?status.
+
+QUERY discharge_plan_ranked:
+FIND ?rank ?step ?title ?gap ?deliverable WHERE ?step#kind@entity:physical_discharge_step AND ?step#rank@?rank AND ?step#title@?title AND ?step#closes_gap@?gap AND ?step#deliverable@?deliverable.
+
+QUERY next_steps_by_rank:
+FIND ?rank ?step ?title ?gap ?status ?owner ?deliverable WHERE ?step#kind@entity:physical_discharge_step AND ?step#rank@?rank AND ?step#title@?title AND ?step#closes_gap@?gap AND ?step#deliverable@?deliverable AND ?gap#is_unresolved@value:true AND ?gap#effective_status@?status AND ?gap#owner_lane@?owner.
+
+QUERY open_blockers_by_lane:
+FIND ?owner ?gap ?title ?status ?required_discharge WHERE ?gap#is_blocker@value:true AND ?gap#owner_lane@?owner AND ?gap#title@?title AND ?gap#effective_status@?status AND ?gap#required_discharge@?required_discharge.
+
+QUERY gaps_without_evidence:
+FIND ?gap ?title ?owner WHERE ?gap#kind@entity:physical_semantics_gap AND ?gap#effective_status@value:done AND ?gap#title@?title AND ?gap#owner_lane@?owner AND NOT ?gap#has_evidence@value:true.
+
+QUERY recent_updates:
+FIND ?gap ?title ?status ?actor ?updated_at ?note ?commit ?artifact WHERE ?gap#kind@entity:physical_semantics_gap AND ?gap#title@?title AND ?gap#effective_status@?status AND ?gap#updated_by@?actor AND ?gap#updated_at@?updated_at AND ?gap#progress_note@?note AND ?gap#progress_commit@?commit AND ?gap#progress_artifact@?artifact.
+
+QUERY strict_gate_blockers:
+FIND ?gap ?title ?reason WHERE ?gap#strict_gate_reason@?reason AND ?gap#title@?title.
+
+QUERY adequacy_status:
+FIND ?status WHERE ns:physical_closure#adequacy_status@?status.
+
+QUERY ready_for_strict_physical_close:
+FIND ?ready WHERE ns:physical_closure#strict_close_ready@?ready.
+
+QUERY_PACK ns_progress_pack [queries=[physical_gap_catalog blocking_physical_gaps unresolved_physical_gaps discharge_plan_ranked next_steps_by_rank open_blockers_by_lane gaps_without_evidence recent_updates strict_gate_blockers adequacy_status ready_for_strict_physical_close], must_return=[physical_gap_catalog discharge_plan_ranked adequacy_status]].
+DSL_PROFILE ns_progress_profile [query_pack=ns_progress_pack, planner_hint=high_selectivity_first, verification_chain=[query_ci]].
+
+QUERY_PACK ns_release_gate_pack [queries=[ready_for_strict_physical_close strict_gate_blockers gaps_without_evidence unresolved_physical_gaps], must_return=[ready_for_strict_physical_close]].
+DSL_PROFILE ns_release_gate_profile [query_pack=ns_release_gate_pack, planner_hint=bound_first, verification_chain=[query_ci constraint]].

@@ -1,0 +1,80 @@
+MODULE navier.stokes.idea.exchange.demo.
+
+// Runnable collaboration model for multi-helper proof discussion.
+// Run:
+//   ./bin/zil theorem-dsl-ci examples/navier-stokes-idea-exchange.zc /tmp/zil-ns-idea-ci
+
+// Components and signals for current closure program.
+USE THM_COMPONENT(path_c_formal_chain, tier0).
+USE THM_COMPONENT(physical_observable_layer, tier0).
+USE THM_COMPONENT(pde_semantics_layer, tier0).
+USE THM_COMPONENT(audit_certificate_layer, tier0).
+
+USE THM_SIGNAL(cameron_gap_certified, path_c_formal_chain).
+USE THM_SIGNAL(bkm_fk_bridge_available, path_c_formal_chain).
+USE THM_SIGNAL(physical_vorticity_mode0_bridge, physical_observable_layer).
+USE THM_SIGNAL(concrete_ns_ops_defined, pde_semantics_layer).
+USE THM_SIGNAL(dual_view_audit_tags, audit_certificate_layer).
+
+USE THM_SIGNAL_HEALTHY(cameron_gap_certified, lean_cert).
+USE THM_SIGNAL_HEALTHY(bkm_fk_bridge_available, lean_cert).
+USE THM_SIGNAL_BROKEN(physical_vorticity_mode0_bridge, stage217a, legacy_zero_model).
+USE THM_SIGNAL_BROKEN(concrete_ns_ops_defined, stage217a, opaque_operator_stubs).
+
+// Assumptions and links.
+USE ASSUMPTION(a_cameron_trace_gap, published).
+USE ASSUMPTION_FROM_SIGNAL(a_cameron_trace_gap, cameron_gap_certified).
+
+USE ASSUMPTION(a_bkm_fk_published, published).
+USE ASSUMPTION_FROM_SIGNAL(a_bkm_fk_published, bkm_fk_bridge_available).
+
+USE ASSUMPTION(a_physical_observable_concrete, physical).
+USE ASSUMPTION_FROM_SIGNAL(a_physical_observable_concrete, physical_vorticity_mode0_bridge).
+
+USE ASSUMPTION(a_pde_semantics_concrete, physical).
+USE ASSUMPTION_FROM_SIGNAL(a_pde_semantics_concrete, concrete_ns_ops_defined).
+
+// Lemmas and evidence.
+USE LEMMA(l_pgs_chain_sound, high).
+USE LEMMA_REQUIRES_ASSUMPTION(l_pgs_chain_sound, a_cameron_trace_gap).
+USE LEMMA_REQUIRES_ASSUMPTION(l_pgs_chain_sound, a_bkm_fk_published).
+USE EVIDENCE_FOR_LEMMA(l_pgs_chain_sound, lean4, proof:millennium_C_closed).
+
+USE LEMMA(l_dual_view_tagging, medium).
+USE LEMMA_REQUIRES_ASSUMPTION(l_dual_view_tagging, a_bkm_fk_published).
+USE EVIDENCE_FOR_LEMMA(l_dual_view_tagging, lean4, proof:millennium_audit_dual_view).
+
+// Theorems tracking roadmap targets.
+USE THEOREM(t_semantic_hardening_gate, high).
+USE THEOREM_REQUIRES_LEMMA(t_semantic_hardening_gate, l_pgs_chain_sound).
+USE THEOREM_REQUIRES_LEMMA(t_semantic_hardening_gate, l_dual_view_tagging).
+USE THEOREM_ENSURES(t_semantic_hardening_gate, no_load_bearing_shim_in_formal_view).
+USE EVIDENCE_FOR_THEOREM(t_semantic_hardening_gate, lean4, proof:millennium_semantic_hardening_gate).
+
+USE THEOREM(t_physical_observable_bridge, high).
+USE THEOREM_REQUIRES_ASSUMPTION(t_physical_observable_bridge, a_physical_observable_concrete).
+USE THEOREM_ENSURES(t_physical_observable_bridge, bkm_uses_concrete_vorticity_observable).
+// intentionally no evidence yet => WEAK unless broken
+
+USE THEOREM(t_pde_semantics_concrete, high).
+USE THEOREM_REQUIRES_ASSUMPTION(t_pde_semantics_concrete, a_pde_semantics_concrete).
+USE THEOREM_ENSURES(t_pde_semantics_concrete, satisfies_nspde_bound_to_t3_weak_form).
+// intentionally no evidence yet => WEAK unless broken
+
+USE THEOREM(t_dual_view_audit_honest, medium).
+USE THEOREM_REQUIRES_LEMMA(t_dual_view_audit_honest, l_dual_view_tagging).
+USE THEOREM_ENSURES(t_dual_view_audit_honest, formal_and_physical_status_reported).
+USE EVIDENCE_FOR_THEOREM(t_dual_view_audit_honest, lean4, proof:dual_view_status_theorems).
+
+// Incidents encode current blockers so helper discussions stay explicit.
+USE INCIDENT(inc_legacy_zero_observable, high).
+USE INCIDENT_BREAK_SIGNAL(inc_legacy_zero_observable, physical_vorticity_mode0_bridge, stage217a, legacy_zero_model).
+USE INCIDENT_BREAK_ASSUMPTION(inc_legacy_zero_observable, a_physical_observable_concrete, stage217a, legacy_zero_model).
+USE INCIDENT_LINK_THEOREM(inc_legacy_zero_observable, t_physical_observable_bridge).
+
+USE INCIDENT(inc_opaque_pde_semantics, high).
+USE INCIDENT_BREAK_SIGNAL(inc_opaque_pde_semantics, concrete_ns_ops_defined, stage217a, opaque_operator_stubs).
+USE INCIDENT_BREAK_ASSUMPTION(inc_opaque_pde_semantics, a_pde_semantics_concrete, stage217a, opaque_operator_stubs).
+USE INCIDENT_LINK_THEOREM(inc_opaque_pde_semantics, t_pde_semantics_concrete).
+
+USE DSL_SUMMARY_QUERIES().

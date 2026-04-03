@@ -1,0 +1,20 @@
+MODULE navier.stokes.physical.closure.progress.current.
+
+// Current collaborative status snapshot.
+// Update this file at task boundaries (not every tiny edit).
+
+USE PHYS_GAP_STATE(g01_observable_realism, done, codex, 2026-03-26T08:32:17Z, "Observable lane is theoremized in current model; branch-equation catalog and trace artifacts were added for auditable equation provenance.", true, "lean:NSEnstrophyPhysicalizationBridge:enstrophyGlobalParsevalAlignment_discharged + wolfram:ns_vsnup_catept_branch_equation_catalog", "worklog:ns_wolfram_branch_equation_trace_20260326", "verification_results/analysis/ns_vsnup_catept_branch_equation_catalog.json").
+USE PHYS_GAP_STATE(g02_alignment_consistency, done, codex, 2026-03-26T08:32:17Z, "PhysicalMode0 alignment is tracked as discharged in current model and synchronized with equation-catalog evidence.", true, "lean:NSEnstrophyPhysicalizationBridge:enstrophyGlobalParsevalAlignment_discharged", "worklog:ns_wolfram_branch_equation_trace_20260326", "verification_results/analysis/ns_vsnup_catept_pen_and_paper_trace.json").
+USE PHYS_GAP_STATE(g03_nonplaceholder_witness, done, codex, 2026-03-26T08:32:17Z, "Strong Stage-218/221 witness route is discharged in current model; irreducible open root moved to realNoetherToSliceVS_global_contract.", true, "lean:MillenniumAuditCertificate:path_C_stage221_strong_global_route_of_enstrophyPhysicalizationGate", "worklog:ns_target_vsnup_unconditional_constructive_all_smooth3d", "lean4_formal_verification/NavierStokes/NavierStokes/MillenniumAuditCertificate.lean").
+USE PHYS_GAP_STATE(g04_pde_operator_semantics, in_progress, codex, 2026-03-26T08:32:17Z, "Still an active strict-physical blocker; PDE semantics concretization lane remains in progress.", true, "worklog:ns_target_concretize_pde_semantics_t3", "worklog:ns_target_concretize_pde_semantics_t3", "lean4_formal_verification/NavierStokes/NavierStokes/AxiomaticEstimates.lean").
+USE PHYS_GAP_STATE(g05_function_space_semantics, in_progress, codex, 2026-03-26T08:32:17Z, "Function-space semantics lane remains active and coupled to PDE semantics hardening.", true, "worklog:ns_stage217a_real_function_spaces", "worklog:ns_stage217a_real_function_spaces", "lean4_formal_verification/NavierStokes/NavierStokes/AxiomaticEstimates.lean").
+USE PHYS_GAP_STATE(g06_continuation_internalization, in_progress, codex, 2026-03-26T08:32:17Z, "Continuation/BKM internalization remains active as a strict closure lane; theorem-level wrappers exist but full internalization is pending.", true, "worklog:ns_gaptable_bkm_t3_global_existence", "worklog:ns_gaptable_bkm_t3_global_existence", "lean4_formal_verification/NavierStokes/NavierStokes/NSBKMContinuationPipeline.lean").
+
+// Latest automation and artifact status snapshot.
+ns:physical_closure#latest_local_ns_gate_status@value:pass.
+ns:physical_closure#latest_conformance_bundle_status@value:pass.
+ns:physical_closure#latest_conformance_bundle_hard_pass@value:true.
+ns:physical_closure#latest_judge_self_test_status@value:rejected.
+ns:physical_closure#latest_judge_self_test_reason@value:"submission_contains_axiom_and_extended_l4_manifest_mismatch".
+ns:physical_closure#latest_wolfram_catalog_artifact@value:"verification_results/analysis/ns_vsnup_catept_branch_equation_catalog.json".
+ns:physical_closure#latest_wolfram_trace_artifact@value:"verification_results/analysis/ns_vsnup_catept_pen_and_paper_trace.json".

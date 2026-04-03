@@ -1,0 +1,15 @@
+MODULE navier.stokes.physical.closure.progress.lib.
+
+// Progress overlay macros for navier-stokes-physical-closure-gaps.zc.
+// These facts are meant to be layered via preprocess lib_dir.
+
+MACRO PHYS_GAP_STATE(gap_id, status, actor, updated_at, note, has_evidence, evidence_ref, commit, artifact):
+EMIT gap:{{gap_id}}#status@value:{{status}}.
+EMIT gap:{{gap_id}}#updated_by@value:{{actor}}.
+EMIT gap:{{gap_id}}#updated_at@value:{{updated_at}}.
+EMIT gap:{{gap_id}}#progress_note@value:{{note}}.
+EMIT gap:{{gap_id}}#has_evidence@value:{{has_evidence}}.
+EMIT gap:{{gap_id}}#evidence_ref@value:{{evidence_ref}}.
+EMIT gap:{{gap_id}}#progress_commit@value:{{commit}}.
+EMIT gap:{{gap_id}}#progress_artifact@value:{{artifact}}.
+ENDMACRO.

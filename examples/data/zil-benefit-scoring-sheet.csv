@@ -1,0 +1,17 @@
+parameter_id,parameter_name,direction,description,score_1_to_5,software_platform_weight,chemical_process_weight,aeronautical_avionics_weight,manufacturing_weight,finance_regulated_it_weight,adjusted_score,weighted_software_platform,weighted_chemical_process,weighted_aeronautical_avionics,weighted_manufacturing,weighted_finance_regulated_it
+P1,Toolchain Fragmentation,positive,How many tools and handoffs are needed today,,1.5,1.0,0.9,1.0,1.2,=IF(C2="negative",6-E2,E2),=F2*K2,=G2*K2,=H2*K2,=I2*K2,=J2*K2
+P2,Evidence and Audit Burden,positive,How strongly the team must justify why decisions are correct,,1.1,1.6,1.8,1.2,1.6,=IF(C3="negative",6-E3,E3),=F3*K3,=G3*K3,=H3*K3,=I3*K3,=J3*K3
+P3,Failure Cost,positive,Operational/safety/financial impact when things go wrong,,1.0,1.7,1.9,1.6,1.4,=IF(C4="negative",6-E4,E4),=F4*K4,=G4*K4,=H4*K4,=I4*K4,=J4*K4
+P4,Compliance Pressure,positive,Regulatory or contractual traceability pressure,,0.9,1.5,1.8,1.3,1.7,=IF(C5="negative",6-E5,E5),=F5*K5,=G5*K5,=H5*K5,=I5*K5,=J5*K5
+P5,Cross-Domain Coupling,positive,Coupling across software ops and physical/business process layers,,1.0,1.5,1.7,1.5,1.2,=IF(C6="negative",6-E6,E6),=F6*K6,=G6*K6,=H6*K6,=I6*K6,=J6*K6
+P6,Uncertainty Rate,positive,How often key information is missing late or contradictory,,1.1,1.4,1.2,1.1,1.1,=IF(C7="negative",6-E7,E7),=F7*K7,=G7*K7,=H7*K7,=I7*K7,=J7*K7
+P7,Collaboration Distribution,positive,How distributed and asynchronous the team/agents are,,1.5,1.0,1.0,0.9,1.5,=IF(C8="negative",6-E8,E8),=F8*K8,=G8*K8,=H8*K8,=I8*K8,=J8*K8
+P8,Manual Glue Burden,positive,How much custom scripting and spreadsheet/ticket stitching exists,,1.5,1.1,1.1,1.5,1.5,=IF(C9="negative",6-E9,E9),=F9*K9,=G9*K9,=H9*K9,=I9*K9,=J9*K9
+P9,Change Velocity,positive,How frequently systems rules and dependencies change,,1.4,0.9,0.8,1.4,1.1,=IF(C10="negative",6-E10,E10),=F10*K10,=G10*K10,=H10*K10,=I10*K10,=J10*K10
+P10,Formal Maturity Gap,positive,Lack of in-house formal methods specialists and workflows,,1.2,1.2,1.3,1.1,1.2,=IF(C11="negative",6-E11,E11),=F11*K11,=G11*K11,=H11*K11,=I11*K11,=J11*K11
+P11,Raw Throughput Priority,negative,Need for extreme runtime throughput over coordination traceability,,1.0,0.8,0.9,0.9,1.0,=IF(C12="negative",6-E12,E12),=F12*K12,=G12*K12,=H12*K12,=I12*K12,=J12*K12
+P12,Adoption Friction,negative,Expected resistance and rollout overhead for new modeling workflow,,1.0,0.9,1.0,1.0,1.1,=IF(C13="negative",6-E13,E13),=F13*K13,=G13*K13,=H13*K13,=I13*K13,=J13*K13
+TOTAL_WEIGHTED,,,,,,,,,,,=SUM(L2:L13),=SUM(M2:M13),=SUM(N2:N13),=SUM(O2:O13),=SUM(P2:P13)
+WEIGHT_SUM,,,,,=SUM(F2:F13),=SUM(G2:G13),=SUM(H2:H13),=SUM(I2:I13),=SUM(J2:J13),,,,,,
+NORMALIZED_SCORE,,,,,,,,,,,=IF(F15=0,"",L14/F15),=IF(G15=0,"",M14/G15),=IF(H15=0,"",N14/H15),=IF(I15=0,"",O14/I15),=IF(J15=0,"",P14/J15)
+RAW_BENEFIT_INDEX,,,,=SUM(E2:E11)-E12-E13,,,,,,,,,,,

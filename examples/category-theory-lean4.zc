@@ -1,0 +1,342 @@
+MODULE ns.category_theory.dual_sphere_fiber.
+
+// Category Theory Library for the Dual-Sphere Fiber Decomposition
+// ================================================================
+// This ZIL model specifies the CT library needed to formalize the
+// dual-sphere fiber decomposition in Lean4.
+//
+// ZIL usage:
+//   ./bin/zil theorem-dsl-ci zil/examples/category-theory-lean4.zc /tmp
+//   ./bin/zil preprocess zil/examples/category-theory-lean4.zc /tmp/ct_pre.zc zil/lib/
+//
+// NOTE: `./bin/zil export-lean` targets LTS_ATOM state-machine declarations and
+// does NOT support CT theorem-graph triples (CT_CATEGORY, CT_ISOMORPHISM, etc.).
+// The corresponding Lean4 file is hand-maintained in sync with this spec:
+//   lean4_formal_verification/NavierStokes/NavierStokes/CategoryTheoryLib.lean
+// A ZIL CT→Lean4 backend would be needed to automate the export.
+//
+// Auditing:
+//   USE CT_QUERY_MISSING()   -- find all unproved CT lemmas
+//   USE DSL_SUMMARY_QUERIES() -- find break roots
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DEPENDENCIES
+// ─────────────────────────────────────────────────────────────────────────────
+
+USE THM_COMPONENT(lean4_mathlib, tier0).
+USE THM_COMPONENT_HEALTHY(lean4_mathlib, toolchain_4_29_0_rc3).
+
+// The CT macro library.
+// In ZIL: import via USE INCLUDE or inline.  Here we declare the macro
+// namespace and use its macros directly (ZIL loads lib macros by module name).
+USE THM_COMPONENT(zil_ct_macros, tier0).
+USE THM_COMPONENT_HEALTHY(zil_ct_macros, zil_lib_category_theory_macros).
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYER 0: AMBIENT CATEGORIES
+// Each category gets three structural axioms (id, comp, assoc) from CT_CATEGORY.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Diff: smooth manifolds and smooth maps.
+USE CT_CATEGORY(Diff, u).
+// Lean4: [Category (SmoothManifold I M)]  or  TopCat / ManifoldCat
+// Mathlib: Mathlib.Geometry.Manifold.Basic (partial; full Diff category absent)
+// Discharge: declare axiomatically for now.
+
+// VectBun: smooth vector bundles over R^3, bundle morphisms.
+USE CT_CATEGORY(VectBun, u).
+// Lean4: VectorBundle (Mathlib.Topology.VectorBundle.Basic)
+
+// FibBun: smooth fiber bundles over R^3, bundle morphisms over id_{R^3}.
+USE CT_CATEGORY(FibBun, u).
+// Lean4: FiberBundle (Mathlib.Topology.FiberBundle.Basic)
+
+// BanSp: Banach spaces and bounded linear maps.
+USE CT_CATEGORY(BanSp, u).
+// Lean4: NormedAddCommGroup + NormedSpace (Mathlib.Analysis.NormedSpace.Basic)
+
+// Meas: measurable spaces and measurable maps.
+USE CT_CATEGORY(Meas, u).
+// Lean4: MeasurableSpace (Mathlib.MeasureTheory.MeasurableSpace.Basic)
+
+// Lean4 evidence for categorical structure of BanSp:
+USE CT_LEAN4(ct_cat_BanSp, Mathlib.Analysis.NormedSpace.Basic, NormedSpace.category_structure).
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYER 1: OBJECTS
+// Key objects in each category.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// --- Diff objects ---
+USE CT_OBJECT(R3,          Diff).   // Euclidean 3-space
+USE CT_OBJECT(R3_punctured, Diff).  // R^3 \ {0}
+USE CT_OBJECT(Rplus,       Diff).   // Positive reals R^+
+USE CT_OBJECT(S2,          Diff).   // 2-sphere
+USE CT_OBJECT(S2_geom,     Diff).   // geometric vorticity direction sphere
+USE CT_OBJECT(S2_info,     Diff).   // information sphere (QIF / holonomy)
+USE CT_OBJECT(S2geom_S2info_product, Diff).  // S^2_geom x S^2_info
+
+// --- VectBun objects ---
+USE CT_OBJECT(TR3,         VectBun).   // tangent bundle of R^3
+USE CT_OBJECT(TstarR3,     VectBun).   // cotangent bundle of R^3
+USE CT_OBJECT(TS2,         VectBun).   // tangent bundle of S^2
+USE CT_OBJECT(xistar_TS2,  VectBun).   // pullback xi*(TS^2) along xi: R^3 -> S^2
+
+// --- FibBun objects ---
+USE CT_OBJECT(R3_x_S2geom,       FibBun).   // trivial S^2_geom-bundle over R^3
+USE CT_OBJECT(R3_x_S2info,       FibBun).   // trivial S^2_info-bundle over R^3
+USE CT_OBJECT(R3_x_S2dual,       FibBun).   // dual-sphere product bundle
+USE CT_OBJECT(R3_x_Rplus,        FibBun).   // trivial R^+-bundle (magnitude sector)
+
+// --- BanSp objects ---
+USE CT_OBJECT(L2_R3,       BanSp).   // L^2(R^3)
+USE CT_OBJECT(L2_div,      BanSp).   // divergence-free L^2 fields: ker(div)
+USE CT_OBJECT(L2_sym,      BanSp).   // symmetric-gradient L^2 fields: ker(antisym)
+USE CT_OBJECT(h1_R3,       BanSp).   // Hardy space h^1(R^3)
+USE CT_OBJECT(BMO_R3,      BanSp).   // BMO(R^3) = bounded mean oscillation
+USE CT_OBJECT(L65_R3,      BanSp).   // L^{6/5}(R^3)
+USE CT_OBJECT(W12_S2,      BanSp).   // Sobolev space W^{1,2}(S^2)
+USE CT_OBJECT(expL2_S2,    BanSp).   // Orlicz space exp-L^2(S^2)
+USE CT_OBJECT(Gamma_L65_xiTS2, BanSp).  // sections Gamma_{L^{6/5}}(xi*(TS^2))
+
+// Lean4 evidence for key Banach space objects:
+USE CT_LEAN4(ct_obj_L2_R3,  Mathlib.MeasureTheory.Function.L2Space,  MeasureTheory.Lp).
+USE CT_LEAN4(ct_obj_h1_R3,  Mathlib.Analysis.HardySpaces,            Real.HardySpace).
+USE CT_LEAN4(ct_obj_BMO_R3, Mathlib.Analysis.MeanOscillation,        BoundedMeanOscillation).
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYER 2: STRUCTURE-PRESERVING BIJECTIONS (ISOMORPHISMS)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// --- Polar decomposition: R^3\{0} ->~= R^+ x S^2 ---
+// This is the fundamental isomorphism in Diff underlying the sector decomposition.
+USE CT_MORPHISM(polar_dec, R3_punctured, Rplus, Diff).
+// Note: codomain should be Rplus x S2; model as composition for now.
+
+USE CT_ISOMORPHISM(polar_dec_iso, polar_dec).
+USE CT_LEAN4_THEOREM(ct_iso_polar_dec_iso_has_inverse,
+    Mathlib.Analysis.InnerProductSpace.Basic,
+    inner_product_geometry_polar_iso).
+
+// --- Dual-sphere product: S^2_geom x S^2_info (categorical product in Diff) ---
+USE CT_MORPHISM(s2_product_proj1, S2geom_S2info_product, S2_geom, Diff).
+USE CT_MORPHISM(s2_product_proj2, S2geom_S2info_product, S2_info, Diff).
+// The two projections satisfy the universal property of the cartesian product.
+USE CT_LEAN4_LEMMA(ct_mor_s2_product_proj1_welltyped,
+    Mathlib.CategoryTheory.Limits.Shapes.Products,
+    CategoryTheory.Limits.Pi.fst).
+USE CT_LEAN4_LEMMA(ct_mor_s2_product_proj2_welltyped,
+    Mathlib.CategoryTheory.Limits.Shapes.Products,
+    CategoryTheory.Limits.Pi.snd).
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYER 3: FUNCTORS
+// ─────────────────────────────────────────────────────────────────────────────
+
+// --- Section functor: xi = omega/|omega|, section of the S^2_geom bundle ---
+// xi: R^3 -> S^2_geom is a section, i.e. a morphism in FibBun.
+// In CT it's also a functor from the discrete category of points to FibBun.
+USE CT_FUNCTOR(section_xi, Diff, FibBun).
+// Lean4: a section is a right-inverse of the bundle projection
+USE CT_LEAN4_LEMMA(ct_fun_section_xi_preserves_id,
+    Mathlib.Topology.FiberBundle.Basic,
+    FiberBundle.section_is_morphism_id).
+
+// --- Pullback functor: xi* : VectBun(S^2) -> VectBun(R^3) ---
+// xi*(TS^2) is the pullback of TS^2 along xi.
+// In CT: this is the pullback functor along xi.
+USE CT_FUNCTOR(pullback_xi, VectBun, VectBun).
+USE CT_LEAN4_LEMMA(ct_fun_pullback_xi_preserves_id,
+    Mathlib.Topology.VectorBundle.Pullback,
+    VectorBundle.Pullback.functor_id).
+USE CT_LEAN4_LEMMA(ct_fun_pullback_xi_preserves_comp,
+    Mathlib.Topology.VectorBundle.Pullback,
+    VectorBundle.Pullback.functor_comp).
+
+// --- Gradient functor: nabla: Sections(E) -> Sections(T*R^3 ⊗ E) ---
+// nabla-xi: Gamma(xi*(TS^2)) -> Gamma(T*R^3 ⊗ xi*(TS^2))
+USE CT_FUNCTOR(gradient_sections, VectBun, VectBun).
+
+// --- Lebesgue-to-Cameron natural transformation (for Giry monad) ---
+// The Cameron weight w_C = exp(-tau_ent) defines a morphism of measure functors.
+USE CT_FUNCTOR(lebesgue_measure_functor, Meas, Meas).
+USE CT_FUNCTOR(cameron_measure_functor,  Meas, Meas).
+USE CT_LEAN4_LEMMA(ct_fun_lebesgue_measure_functor_preserves_id,
+    Mathlib.MeasureTheory.Measure.MeasureSpace,
+    MeasureTheory.Measure.lebesgue_functor_id).
+USE CT_LEAN4_LEMMA(ct_fun_cameron_measure_functor_preserves_id,
+    Mathlib.MeasureTheory.Measure.MeasureSpace,
+    MeasureTheory.Measure.cameron_functor_id).
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYER 4: NATURAL TRANSFORMATIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+// --- Cameron weight as natural transformation ---
+// w_C: lebesgue_measure_functor => cameron_measure_functor
+// Naturality: the weight commutes with measurable maps (Radon-Nikodym).
+USE CT_NAT_TRANS(cameron_weight_nt, lebesgue_measure_functor, cameron_measure_functor).
+USE CT_LEAN4_LEMMA(ct_nt_cameron_weight_nt_naturality_square,
+    Mathlib.MeasureTheory.Measure.MeasureSpace,
+    MeasureTheory.Measure.radon_nikodym_naturality).
+
+// --- 4-way 6/5 exponent: natural isomorphism of exponent functors ---
+// F_Tadmor, F_Sobolev, F_Fisher, F_Spatial are all equal at d=3.
+// This is a natural isomorphism (in fact definitional equality) of four functors
+// from the discrete category {2, 3} to Q^+.
+USE CT_FUNCTOR(tadmor_exponent_functor,   Diff, BanSp).
+USE CT_FUNCTOR(sobolev_dual_functor,      Diff, BanSp).
+USE CT_FUNCTOR(fisher_tangent_functor,    Diff, BanSp).
+USE CT_FUNCTOR(spatial_sector_functor,    Diff, BanSp).
+
+USE CT_NAT_ISO(tadmor_sobolev_coincide, tadmor_exponent_functor, sobolev_dual_functor).
+USE CT_NAT_ISO(tadmor_fisher_coincide,  tadmor_exponent_functor, fisher_tangent_functor).
+USE CT_NAT_ISO(tadmor_spatial_coincide, tadmor_exponent_functor, spatial_sector_functor).
+
+// Lean4: these are proved by native_decide in DualSphereFisherDecomposition.lean.
+USE CT_LEAN4_THEOREM(ct_nt_tadmor_sobolev_coincide_components_are_isos,
+    NavierStokes.DualSphereFisherDecomposition,
+    four_way_exponent_convergence).
+USE CT_LEAN4_THEOREM(ct_nt_tadmor_fisher_coincide_components_are_isos,
+    NavierStokes.DualSphereFisherDecomposition,
+    four_way_exponent_convergence).
+USE CT_LEAN4_THEOREM(ct_nt_tadmor_spatial_coincide_components_are_isos,
+    NavierStokes.DualSphereFisherDecomposition,
+    four_way_exponent_convergence).
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYER 5: PULLBACK BUNDLE AND SECTION SPACE
+// ─────────────────────────────────────────────────────────────────────────────
+
+// xi*(TS^2): the pullback of TS^2 along the section xi: R^3 -> S^2.
+USE CT_PULLBACK_BUNDLE(xi_pullback_TS2, section_xi, TS2).
+
+// The gradient section nabla-xi lives in Gamma(xi*(TS^2)).
+// The open question: does it factor through Gamma_{L^{6/5}}?
+USE CT_MORPHISM(nabla_xi, TR3, xistar_TS2, VectBun).
+
+// Inclusion of L^{6/5} sections into all sections:
+USE CT_MORPHISM(L65_inclusion, Gamma_L65_xiTS2, xistar_TS2, VectBun).
+
+// THE OPEN CONTENT MORPHISM:
+// Does nabla_xi factor through L65_inclusion?
+// i.e., exists f: TR3 -> Gamma_L65_xiTS2 such that L65_inclusion ∘ f = nabla_xi?
+// This is a universal-property factorization question in VectBun.
+USE THM_ASSUMPTION(a_ct_open_factorization, open).
+// spatial_direction_gradient_conjecture in CT language:
+//   nabla_xi ∈ Gamma_{L^{6/5}}(xi*(TS^2))
+//   = nabla_xi factors through L65_inclusion in VectBun
+USE THM_ASSUMPTION_FROM_SIGNAL(a_ct_open_factorization, ct_cat_VectBun).
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYER 6: BANACH SPACE MORPHISMS (ANALYTIC LAYER)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// --- CLMS bilinear map: B: L^2_div x L^2_sym -> h^1 ---
+USE CT_BILINEAR_MORPHISM(clms_bilinear, L2_div, L2_sym, h1_R3).
+USE CT_LEAN4_LEMMA(ct_bilin_clms_bilinear_bilinearity,
+    Mathlib.Analysis.HardySpaces,
+    Real.HardySpace.clms_bilinear).
+USE CT_LEAN4_LEMMA(ct_bilin_clms_bilinear_boundedness,
+    Mathlib.Analysis.HardySpaces,
+    Real.HardySpace.clms_bounded).
+
+// --- Fefferman-Stein duality: h^1* = BMO ---
+// This is a natural pairing morphism: h^1 ⊗ BMO -> R
+USE CT_BANACH_MORPHISM(fs_duality_pairing, h1_R3, BMO_R3).
+USE CT_LEAN4_LEMMA(ct_banach_fs_duality_pairing_linearity,
+    Mathlib.Analysis.HardySpaces,
+    Real.HardySpace.fefferman_stein_linearity).
+USE CT_LEAN4_LEMMA(ct_banach_fs_duality_pairing_boundedness,
+    Mathlib.Analysis.HardySpaces,
+    Real.HardySpace.fefferman_stein_duality).
+
+// --- Trudinger-Moser embedding: W^{1,2}(S^2) -> exp-L^2(S^2) ---
+USE CT_BANACH_MORPHISM(trudinger_moser, W12_S2, expL2_S2).
+USE CT_LEAN4_LEMMA(ct_banach_trudinger_moser_linearity,
+    Mathlib.Analysis.SobolevSpace.Embedding,
+    SobolevSpace.trudinger_moser_linearity).
+USE CT_LEAN4_LEMMA(ct_banach_trudinger_moser_boundedness,
+    Mathlib.Analysis.SobolevSpace.Embedding,
+    SobolevSpace.trudinger_moser_embedding).
+
+// --- John-Nirenberg: BMO -> L^{6/5} (for the spatial 3D exponent) ---
+USE CT_BANACH_MORPHISM(john_nirenberg_embedding, BMO_R3, L65_R3).
+USE CT_LEAN4_LEMMA(ct_banach_john_nirenberg_embedding_linearity,
+    Mathlib.Analysis.MeanOscillation,
+    BoundedMeanOscillation.john_nirenberg_linearity).
+USE CT_LEAN4_LEMMA(ct_banach_john_nirenberg_embedding_boundedness,
+    Mathlib.Analysis.MeanOscillation,
+    BoundedMeanOscillation.john_nirenberg_lp_embedding).
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYER 7: ADJUNCTIONS (OPTIONAL — for advanced CT formulation)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// The section / projection adjunction in FibBun:
+// The section functor Γ: Diff -> FibBun is left adjoint to the forgetting functor
+// that takes a bundle to its base.  This expresses that sections are "free
+// choices of fiber value at each point."
+USE CT_ADJUNCTION(section_projection_adj, section_xi, gradient_sections).
+// Note: this is heuristic; the precise adjunction depends on the bundle structure.
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYER 8: LEAN4 CORRESPONDENCE RECORD (hand-maintained)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// This layer documents the Lean4 file that implements the CT spec above.
+// It is NOT generated by export-lean (which only handles LTS_ATOM declarations).
+//
+// Corresponding Lean4 file (hand-maintained in sync):
+//   lean4_formal_verification/NavierStokes/NavierStokes/CategoryTheoryLib.lean
+//
+// Required imports in that file:
+//   import Mathlib.CategoryTheory.Category.Basic
+//   import Mathlib.CategoryTheory.Functor.Basic
+//   import Mathlib.CategoryTheory.NatTrans
+//   import Mathlib.CategoryTheory.Iso
+//   import Mathlib.CategoryTheory.Adjunction.Basic
+//   import Mathlib.CategoryTheory.Limits.Shapes.Products
+//   import Mathlib.Analysis.InnerProductSpace.PiL2
+//   import Mathlib.Topology.VectorBundle.Basic
+//   import Mathlib.Topology.FiberBundle.Basic
+//   import Mathlib.MeasureTheory.Measure.MeasureSpace
+//   import NavierStokes.DualSphereFisherDecomposition
+//
+//   namespace NavierStokes.Millennium.CategoryTheory
+//   set_option autoImplicit false
+//   open _root_.CategoryTheory
+//
+// When a ZIL CT→Lean4 backend is implemented, this layer should be replaced
+// by an actual export directive.
+
+USE THM_ASSUMPTION(a_lean4_ct_imports, high).
+// Lean4 imports needed for this CT library:
+//   Mathlib.CategoryTheory.Functor.Basic
+//   Mathlib.CategoryTheory.NatTrans
+//   Mathlib.CategoryTheory.Iso
+//   Mathlib.CategoryTheory.Adjunction.Basic
+//   Mathlib.CategoryTheory.Limits.Shapes.Products
+//   Mathlib.Topology.VectorBundle.Basic
+//   Mathlib.Topology.VectorBundle.Pullback
+//   Mathlib.Topology.FiberBundle.Basic
+//   Mathlib.Analysis.NormedSpace.Basic
+//   Mathlib.MeasureTheory.Measure.MeasureSpace
+USE THM_ASSUMPTION_FROM_SIGNAL(a_lean4_ct_imports, lean4_mathlib).
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYER 9: AUDIT QUERIES
+// ─────────────────────────────────────────────────────────────────────────────
+
+USE CT_QUERY_MISSING().
+USE DSL_SUMMARY_QUERIES().
+
+QUERY ct_open_factorizations:
+FIND ?a WHERE ?a#kind@entity:thm_assumption AND ?a#class@value:open.
+
+QUERY ct_isomorphisms_without_evidence:
+FIND ?i ?m WHERE ?i#kind@entity:ct_isomorphism AND ?i#morphism@?m
+    AND NOT ?i#has_proof@value:true.
+
+QUERY ct_lean4_module_coverage:
+FIND ?mod WHERE evidence:ct:?_#module@?mod.

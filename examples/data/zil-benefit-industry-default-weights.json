@@ -1,0 +1,181 @@
+{
+  "schema_version": "0.1",
+  "title": "ZIL Benefit Characterization Defaults",
+  "score_scale": {
+    "min": 1,
+    "max": 5,
+    "description": "1=low, 5=high"
+  },
+  "formulas": {
+    "raw_benefit_index": "sum(P1..P10) - P11 - P12",
+    "adjusted_score": "direction == negative ? (6 - score) : score",
+    "weighted_benefit_index": "sum_i(weight_i * adjusted_score_i)",
+    "weighted_normalized_score": "weighted_benefit_index / sum(weights)"
+  },
+  "parameters": [
+    {
+      "id": "P1",
+      "name": "Toolchain Fragmentation",
+      "direction": "positive",
+      "description": "How many tools and handoffs are needed today"
+    },
+    {
+      "id": "P2",
+      "name": "Evidence and Audit Burden",
+      "direction": "positive",
+      "description": "How strongly the team must justify why decisions are correct"
+    },
+    {
+      "id": "P3",
+      "name": "Failure Cost",
+      "direction": "positive",
+      "description": "Operational, safety, or financial impact when things go wrong"
+    },
+    {
+      "id": "P4",
+      "name": "Compliance Pressure",
+      "direction": "positive",
+      "description": "Regulatory or contractual traceability pressure"
+    },
+    {
+      "id": "P5",
+      "name": "Cross-Domain Coupling",
+      "direction": "positive",
+      "description": "Coupling across software, ops, and physical/business layers"
+    },
+    {
+      "id": "P6",
+      "name": "Uncertainty Rate",
+      "direction": "positive",
+      "description": "How often key information is missing, late, or contradictory"
+    },
+    {
+      "id": "P7",
+      "name": "Collaboration Distribution",
+      "direction": "positive",
+      "description": "How distributed and asynchronous the team or agents are"
+    },
+    {
+      "id": "P8",
+      "name": "Manual Glue Burden",
+      "direction": "positive",
+      "description": "How much custom scripting and spreadsheet/ticket stitching exists"
+    },
+    {
+      "id": "P9",
+      "name": "Change Velocity",
+      "direction": "positive",
+      "description": "How frequently systems, rules, and dependencies change"
+    },
+    {
+      "id": "P10",
+      "name": "Formal Maturity Gap",
+      "direction": "positive",
+      "description": "Lack of in-house formal methods specialists and workflows"
+    },
+    {
+      "id": "P11",
+      "name": "Raw Throughput Priority",
+      "direction": "negative",
+      "description": "Need for extreme runtime throughput over coordination and traceability"
+    },
+    {
+      "id": "P12",
+      "name": "Adoption Friction",
+      "direction": "negative",
+      "description": "Expected resistance and rollout overhead for new modeling workflow"
+    }
+  ],
+  "industry_profiles": {
+    "software_platform": {
+      "label": "Software and Platform Engineering",
+      "weights": {
+        "P1": 1.5,
+        "P2": 1.1,
+        "P3": 1.0,
+        "P4": 0.9,
+        "P5": 1.0,
+        "P6": 1.1,
+        "P7": 1.5,
+        "P8": 1.5,
+        "P9": 1.4,
+        "P10": 1.2,
+        "P11": 1.0,
+        "P12": 1.0
+      },
+      "emphasis": ["P1", "P7", "P8", "P9"]
+    },
+    "chemical_process": {
+      "label": "Chemical and Process Engineering",
+      "weights": {
+        "P1": 1.0,
+        "P2": 1.6,
+        "P3": 1.7,
+        "P4": 1.5,
+        "P5": 1.5,
+        "P6": 1.4,
+        "P7": 1.0,
+        "P8": 1.1,
+        "P9": 0.9,
+        "P10": 1.2,
+        "P11": 0.8,
+        "P12": 0.9
+      },
+      "emphasis": ["P2", "P3", "P4", "P5", "P6"]
+    },
+    "aeronautical_avionics": {
+      "label": "Aeronautical and Avionics Engineering",
+      "weights": {
+        "P1": 0.9,
+        "P2": 1.8,
+        "P3": 1.9,
+        "P4": 1.8,
+        "P5": 1.7,
+        "P6": 1.2,
+        "P7": 1.0,
+        "P8": 1.1,
+        "P9": 0.8,
+        "P10": 1.3,
+        "P11": 0.9,
+        "P12": 1.0
+      },
+      "emphasis": ["P2", "P3", "P4", "P5"]
+    },
+    "manufacturing_industrial": {
+      "label": "Manufacturing and Industrial Engineering",
+      "weights": {
+        "P1": 1.0,
+        "P2": 1.2,
+        "P3": 1.6,
+        "P4": 1.3,
+        "P5": 1.5,
+        "P6": 1.1,
+        "P7": 0.9,
+        "P8": 1.5,
+        "P9": 1.4,
+        "P10": 1.1,
+        "P11": 0.9,
+        "P12": 1.0
+      },
+      "emphasis": ["P3", "P5", "P8", "P9"]
+    },
+    "finance_regulated_it": {
+      "label": "Finance and Regulated IT",
+      "weights": {
+        "P1": 1.2,
+        "P2": 1.6,
+        "P3": 1.4,
+        "P4": 1.7,
+        "P5": 1.2,
+        "P6": 1.1,
+        "P7": 1.5,
+        "P8": 1.5,
+        "P9": 1.1,
+        "P10": 1.2,
+        "P11": 1.0,
+        "P12": 1.1
+      },
+      "emphasis": ["P2", "P4", "P7", "P8"]
+    }
+  }
+}
