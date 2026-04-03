@@ -1,0 +1,451 @@
+MODULE sync.migration.lib.
+
+// Generic migration-sync DSL.
+// Seeburger -> AWS MFT is one case implemented on top of this.
+//
+// Core abstractions:
+// - systems and locations
+// - migrations and links
+// - sync conditions and indications
+// - basic networking paths and rules
+
+MACRO SYNC_LOCATION(id, kind, zone):
+EMIT location:{{id}}#kind@entity:location.
+EMIT location:{{id}}#location_kind@value:{{kind}}.
+EMIT location:{{id}}#zone@value:{{zone}}.
+ENDMACRO.
+
+MACRO SYNC_SYSTEM(id, system_class, platform, site):
+EMIT system:{{id}}#kind@entity:system.
+EMIT system:{{id}}#system_class@value:{{system_class}}.
+EMIT system:{{id}}#platform@value:{{platform}}.
+EMIT system:{{id}}#site@value:{{site}}.
+ENDMACRO.
+
+MACRO SYNC_SYSTEM_IN_LOCATION(system, location):
+EMIT system:{{system}}#located_in@location:{{location}}.
+ENDMACRO.
+
+MACRO SYNC_MIGRATION(id, source, target, strategy):
+EMIT migration:{{id}}#kind@entity:migration.
+EMIT migration:{{id}}#source@system:{{source}}.
+EMIT migration:{{id}}#target@system:{{target}}.
+EMIT migration:{{id}}#strategy@value:{{strategy}}.
+ENDMACRO.
+
+MACRO SYNC_FLOW(id, domain, criticality):
+EMIT flow:{{id}}#kind@entity:flow.
+EMIT flow:{{id}}#domain@value:{{domain}}.
+EMIT flow:{{id}}#criticality@value:{{criticality}}.
+ENDMACRO.
+
+MACRO SYNC_LINK(id, source, target, flow):
+EMIT sync_link:{{id}}#kind@entity:sync_link.
+EMIT sync_link:{{id}}#source@system:{{source}}.
+EMIT sync_link:{{id}}#target@system:{{target}}.
+EMIT sync_link:{{id}}#flow@flow:{{flow}}.
+ENDMACRO.
+
+MACRO SYNC_LINK_IN_MIGRATION(link, migration):
+EMIT sync_link:{{link}}#migration@migration:{{migration}}.
+ENDMACRO.
+
+MACRO SYNC_LINK_NETWORK(link, protocol, port, policy_mode):
+EMIT sync_link:{{link}}#network_protocol@value:{{protocol}}.
+EMIT sync_link:{{link}}#network_port@value:{{port}}.
+EMIT sync_link:{{link}}#network_policy_mode@value:{{policy_mode}}.
+ENDMACRO.
+
+MACRO SYNC_CONDITION(id, class):
+EMIT condition:{{id}}#kind@entity:sync_condition.
+EMIT condition:{{id}}#class@value:{{class}}.
+ENDMACRO.
+
+MACRO SYNC_CONDITION_SIGNAL(condition, signal):
+EMIT condition:{{condition}}#requires_signal@signal:{{signal}}.
+ENDMACRO.
+
+MACRO SYNC_LINK_REQUIRES(link, condition):
+EMIT sync_link:{{link}}#requires_condition@condition:{{condition}}.
+ENDMACRO.
+
+MACRO NET_ZONE(id, zone_type, cidr):
+EMIT network_zone:{{id}}#kind@entity:network_zone.
+EMIT network_zone:{{id}}#zone_type@value:{{zone_type}}.
+EMIT network_zone:{{id}}#cidr@value:{{cidr}}.
+ENDMACRO.
+
+MACRO NET_SYSTEM_IN_ZONE(system, zone):
+EMIT system:{{system}}#network_zone@network_zone:{{zone}}.
+ENDMACRO.
+
+MACRO NET_PATH(id, source, target, transport):
+EMIT network_path:{{id}}#kind@entity:network_path.
+EMIT network_path:{{id}}#source@system:{{source}}.
+EMIT network_path:{{id}}#target@system:{{target}}.
+EMIT network_path:{{id}}#transport@value:{{transport}}.
+ENDMACRO.
+
+MACRO NET_PATH_STATE(path_id, state, evidence):
+EMIT network_path:{{path_id}}#state@value:{{state}}.
+EMIT network_path:{{path_id}}#state_evidence@source:{{evidence}}.
+ENDMACRO.
+
+MACRO SYNC_LINK_REQUIRES_PATH(link, path):
+EMIT sync_link:{{link}}#requires_path@network_path:{{path}}.
+ENDMACRO.
+
+MACRO NET_RULE(id, action, source, target, protocol, port):
+EMIT net_rule:{{id}}#kind@entity:network_rule.
+EMIT net_rule:{{id}}#action@value:{{action}}.
+EMIT net_rule:{{id}}#source@system:{{source}}.
+EMIT net_rule:{{id}}#target@system:{{target}}.
+EMIT net_rule:{{id}}#protocol@value:{{protocol}}.
+EMIT net_rule:{{id}}#port@value:{{port}}.
+ENDMACRO.
+
+MACRO SYNC_INDICATION(system, link, signal, status, evidence):
+EMIT observation:{{system}}:{{link}}:{{signal}}#kind@entity:observation.
+EMIT observation:{{system}}:{{link}}:{{signal}}#system@system:{{system}}.
+EMIT observation:{{system}}:{{link}}:{{signal}}#link@sync_link:{{link}}.
+EMIT observation:{{system}}:{{link}}:{{signal}}#signal@signal:{{signal}}.
+EMIT observation:{{system}}:{{link}}:{{signal}}#status@value:{{status}}.
+EMIT observation:{{system}}:{{link}}:{{signal}}#evidence@source:{{evidence}}.
+ENDMACRO.
+
+MACRO SYNC_MECHANISM_ASSERT(link, mechanism, confidence, evidence):
+EMIT sync_link:{{link}}#asserted_by_mechanism@mechanism:{{mechanism}}.
+EMIT sync_link:{{link}}#assertion_confidence@value:{{confidence}}.
+EMIT sync_link:{{link}}#assertion_evidence@source:{{evidence}}.
+ENDMACRO.
+
+MACRO SYNC_OVERRIDE(link, state, reason):
+EMIT sync_link:{{link}}#manual_override_state@value:{{state}}.
+EMIT sync_link:{{link}}#manual_override_reason@value:{{reason}}.
+ENDMACRO.
+
+// TLM layer for migration logic.
+// Use this when you want stage-based transaction modeling on top of sync links.
+
+MACRO SYNC_TLM_COMPONENT(name, role):
+EMIT USE TLM_COMPONENT({{name}}, {{role}}).
+ENDMACRO.
+
+MACRO SYNC_TLM_CHANNEL(name, src, dst, timing_level):
+EMIT USE TLM_CHANNEL({{name}}, {{src}}, {{dst}}, {{timing_level}}).
+EMIT tlm:channel:{{name}}#timing_level@value:{{timing_level}}.
+ENDMACRO.
+
+MACRO SYNC_LINK_REQUIRES_TLM_STAGE(link, stage):
+EMIT USE TLM_LINK_REQUIRES_STAGE(sync_link:{{link}}, {{stage}}).
+ENDMACRO.
+
+MACRO SYNC_TLM_TX(tx, link, stage, cmd, src, dst, channel, timing_level):
+EMIT USE TLM_TX_FOR_LINK({{tx}}, sync_link:{{link}}, {{stage}}, {{cmd}}, {{src}}, {{dst}}, {{channel}}, {{timing_level}}).
+ENDMACRO.
+
+MACRO SYNC_TLM_ACCEPT(tx):
+EMIT USE TLM_TX_ACCEPT({{tx}}).
+ENDMACRO.
+
+MACRO SYNC_TLM_FAIL(tx, reason):
+EMIT USE TLM_TX_FAIL({{tx}}, {{reason}}).
+ENDMACRO.
+
+// Compatibility wrappers for older MFT-specific models.
+
+MACRO MFT_LOCATION(id, kind, zone):
+EMIT USE SYNC_LOCATION({{id}}, {{kind}}, {{zone}}).
+ENDMACRO.
+
+MACRO MFT_SYSTEM(id, platform, site):
+EMIT USE SYNC_SYSTEM({{id}}, integration_app, {{platform}}, {{site}}).
+ENDMACRO.
+
+MACRO MFT_SYSTEM_IN_LOCATION(system, location):
+EMIT USE SYNC_SYSTEM_IN_LOCATION({{system}}, {{location}}).
+ENDMACRO.
+
+MACRO MFT_MIGRATION(id, source, target, strategy):
+EMIT USE SYNC_MIGRATION({{id}}, {{source}}, {{target}}, {{strategy}}).
+ENDMACRO.
+
+MACRO MFT_FLOW(id, domain, criticality):
+EMIT USE SYNC_FLOW({{id}}, {{domain}}, {{criticality}}).
+ENDMACRO.
+
+MACRO MFT_SYNC_LINK(id, source, target, flow):
+EMIT USE SYNC_LINK({{id}}, {{source}}, {{target}}, {{flow}}).
+ENDMACRO.
+
+MACRO MFT_LINK_IN_MIGRATION(link, migration):
+EMIT USE SYNC_LINK_IN_MIGRATION({{link}}, {{migration}}).
+ENDMACRO.
+
+MACRO MFT_LINK_NETWORK(link, protocol, port, policy_mode):
+EMIT USE SYNC_LINK_NETWORK({{link}}, {{protocol}}, {{port}}, {{policy_mode}}).
+ENDMACRO.
+
+MACRO MFT_CONDITION(id, class):
+EMIT USE SYNC_CONDITION({{id}}, {{class}}).
+ENDMACRO.
+
+MACRO MFT_CONDITION_SIGNAL(condition, signal):
+EMIT USE SYNC_CONDITION_SIGNAL({{condition}}, {{signal}}).
+ENDMACRO.
+
+MACRO MFT_LINK_REQUIRES(link, condition):
+EMIT USE SYNC_LINK_REQUIRES({{link}}, {{condition}}).
+ENDMACRO.
+
+MACRO MFT_LINK_REQUIRES_PATH(link, path):
+EMIT USE SYNC_LINK_REQUIRES_PATH({{link}}, {{path}}).
+ENDMACRO.
+
+MACRO MFT_INDICATION(system, link, signal, status, evidence):
+EMIT USE SYNC_INDICATION({{system}}, {{link}}, {{signal}}, {{status}}, {{evidence}}).
+ENDMACRO.
+
+MACRO MFT_MECHANISM_ASSERT(link, mechanism, confidence, evidence):
+EMIT USE SYNC_MECHANISM_ASSERT({{link}}, {{mechanism}}, {{confidence}}, {{evidence}}).
+ENDMACRO.
+
+MACRO MFT_OVERRIDE(link, state, reason):
+EMIT USE SYNC_OVERRIDE({{link}}, {{state}}, {{reason}}).
+ENDMACRO.
+
+MACRO MFT_LINK_REQUIRES_TLM_STAGE(link, stage):
+EMIT USE SYNC_LINK_REQUIRES_TLM_STAGE({{link}}, {{stage}}).
+ENDMACRO.
+
+MACRO MFT_TLM_COMPONENT(name, role):
+EMIT USE SYNC_TLM_COMPONENT({{name}}, {{role}}).
+ENDMACRO.
+
+MACRO MFT_TLM_CHANNEL(name, src, dst, timing_level):
+EMIT USE SYNC_TLM_CHANNEL({{name}}, {{src}}, {{dst}}, {{timing_level}}).
+ENDMACRO.
+
+MACRO MFT_TLM_TX(tx, link, stage, cmd, src, dst, channel, timing_level):
+EMIT USE SYNC_TLM_TX({{tx}}, {{link}}, {{stage}}, {{cmd}}, {{src}}, {{dst}}, {{channel}}, {{timing_level}}).
+ENDMACRO.
+
+MACRO MFT_TLM_ACCEPT(tx):
+EMIT USE SYNC_TLM_ACCEPT({{tx}}).
+ENDMACRO.
+
+MACRO MFT_TLM_FAIL(tx, reason):
+EMIT USE SYNC_TLM_FAIL({{tx}}, {{reason}}).
+ENDMACRO.
+
+RULE sync_migration_type_dc_to_dc:
+IF ?m#source@?src AND ?src#located_in@?sloc AND ?sloc#location_kind@value:datacenter AND ?m#target@?dst AND ?dst#located_in@?dloc AND ?dloc#location_kind@value:datacenter
+THEN ?m#migration_type@value:dc_to_dc.
+
+RULE sync_migration_type_dc_to_cloud:
+IF ?m#source@?src AND ?src#located_in@?sloc AND ?sloc#location_kind@value:datacenter AND ?m#target@?dst AND ?dst#located_in@?dloc AND ?dloc#location_kind@value:cloud
+THEN ?m#migration_type@value:dc_to_cloud.
+
+RULE sync_link_migration_type:
+IF ?link#migration@?m AND ?m#migration_type@?t
+THEN ?link#migration_type@?t.
+
+RULE sync_required_path_up:
+IF ?link#requires_path@?path AND ?path#state@value:up
+THEN ?link#path_ok@?path.
+
+RULE sync_required_path_missing:
+IF ?link#requires_path@?path AND NOT ?link#path_ok@?path
+THEN ?link#network_gap@?path.
+
+RULE sync_allow_rule_match:
+IF ?link#source@?src AND ?link#target@?dst AND ?link#network_protocol@?proto AND ?link#network_port@?port AND ?rule#action@value:allow AND ?rule#source@?src AND ?rule#target@?dst AND ?rule#protocol@?proto AND ?rule#port@?port
+THEN ?link#allow_witness@?rule.
+
+RULE sync_deny_rule_match:
+IF ?link#source@?src AND ?link#target@?dst AND ?link#network_protocol@?proto AND ?link#network_port@?port AND ?rule#action@value:deny AND ?rule#source@?src AND ?rule#target@?dst AND ?rule#protocol@?proto AND ?rule#port@?port
+THEN ?link#deny_witness@?rule AND ?link#network_gap@?rule.
+
+RULE sync_has_allow_policy:
+IF ?link#allow_witness@?rule
+THEN ?link#has_allow_policy@value:true.
+
+RULE sync_needs_allow_policy:
+IF ?link#network_policy_mode@value:enforce
+THEN ?link#needs_allow_policy@value:true.
+
+RULE sync_missing_allow_policy:
+IF ?link#needs_allow_policy@value:true AND NOT ?link#has_allow_policy@value:true
+THEN ?link#network_gap@value:missing_allow_rule.
+
+RULE sync_has_network_gap:
+IF ?link#network_gap@?reason
+THEN ?link#has_network_gap@value:true.
+
+RULE sync_tlm_stage_accepted:
+IF ?tx#for_link@?link AND ?tx#stage@?stage AND ?tx#status@value:accepted
+THEN ?link#tlm_stage_accepted@?stage.
+
+RULE sync_tlm_stage_failed:
+IF ?tx#for_link@?link AND ?tx#stage@?stage AND ?tx#status@value:failed
+THEN ?link#tlm_stage_failed@?stage AND ?link#has_contradiction@value:true.
+
+RULE sync_tlm_missing_stage:
+IF ?link#requires_tlm_stage@?stage AND NOT ?link#tlm_stage_accepted@?stage
+THEN ?link#missing_tlm_stage@?stage.
+
+RULE sync_tlm_has_gap_from_missing_stage:
+IF ?link#missing_tlm_stage@?stage
+THEN ?link#has_tlm_gap@value:true.
+
+RULE sync_tlm_has_gap_from_failed_stage:
+IF ?link#tlm_stage_failed@?stage
+THEN ?link#has_tlm_gap@value:true.
+
+RULE sync_condition_source_ok:
+IF ?link#source@?sys AND ?link#requires_condition@?cond AND ?cond#requires_signal@?signal AND ?obs#link@?link AND ?obs#system@?sys AND ?obs#signal@?signal AND ?obs#status@value:ok
+THEN ?link#condition_source_ok@?cond.
+
+RULE sync_condition_target_ok:
+IF ?link#target@?sys AND ?link#requires_condition@?cond AND ?cond#requires_signal@?signal AND ?obs#link@?link AND ?obs#system@?sys AND ?obs#signal@?signal AND ?obs#status@value:ok
+THEN ?link#condition_target_ok@?cond.
+
+RULE sync_condition_met:
+IF ?link#condition_source_ok@?cond AND ?link#condition_target_ok@?cond
+THEN ?link#condition_met@?cond.
+
+RULE sync_missing_condition:
+IF ?link#requires_condition@?cond AND NOT ?link#condition_met@?cond
+THEN ?link#missing_condition@?cond.
+
+RULE sync_has_missing_condition:
+IF ?link#missing_condition@?cond
+THEN ?link#has_missing_condition@value:true.
+
+RULE sync_contradiction_fail:
+IF ?obs#link@?link AND ?obs#status@value:fail
+THEN ?link#has_contradiction@value:true.
+
+RULE sync_contradiction_breach:
+IF ?obs#link@?link AND ?obs#status@value:breach
+THEN ?link#has_contradiction@value:true.
+
+RULE sync_state_out_from_missing:
+IF ?link#has_missing_condition@value:true
+THEN ?link#sync_state@value:out_of_sync.
+
+RULE sync_state_out_from_contradiction:
+IF ?link#has_contradiction@value:true
+THEN ?link#sync_state@value:out_of_sync.
+
+RULE sync_state_out_from_network_gap:
+IF ?link#has_network_gap@value:true
+THEN ?link#sync_state@value:out_of_sync.
+
+RULE sync_state_out_from_tlm_gap:
+IF ?link#has_tlm_gap@value:true
+THEN ?link#sync_state@value:out_of_sync.
+
+RULE sync_state_assumed:
+IF ?link#asserted_by_mechanism@?mech AND ?link#assertion_confidence@value:high AND NOT ?link#has_contradiction@value:true AND NOT ?link#has_missing_condition@value:true AND NOT ?link#has_network_gap@value:true AND NOT ?link#has_tlm_gap@value:true
+THEN ?link#sync_state@value:assumed_in_sync.
+
+RULE sync_state_in:
+IF ?link#kind@entity:sync_link AND NOT ?link#has_contradiction@value:true AND NOT ?link#has_missing_condition@value:true AND NOT ?link#has_network_gap@value:true AND NOT ?link#has_tlm_gap@value:true
+THEN ?link#sync_state@value:in_sync.
+
+RULE sync_manual_override:
+IF ?link#manual_override_state@?state
+THEN ?link#sync_state@?state.
+
+QUERY sync_migration_types:
+FIND ?migration ?type WHERE ?migration#kind@entity:migration AND ?migration#migration_type@?type.
+
+QUERY sync_link_migration_types:
+FIND ?link ?type WHERE ?link#kind@entity:sync_link AND ?link#migration_type@?type.
+
+QUERY sync_links_sync_state:
+FIND ?link ?state WHERE ?link#kind@entity:sync_link AND ?link#sync_state@?state.
+
+QUERY sync_in_sync_links:
+FIND ?link WHERE ?link#sync_state@value:in_sync.
+
+QUERY sync_assumed_in_sync_links:
+FIND ?link ?mech WHERE ?link#sync_state@value:assumed_in_sync AND ?link#asserted_by_mechanism@?mech.
+
+QUERY sync_out_of_sync_links:
+FIND ?link WHERE ?link#sync_state@value:out_of_sync.
+
+QUERY sync_missing_conditions:
+FIND ?link ?cond WHERE ?link#missing_condition@?cond.
+
+QUERY sync_contradictions:
+FIND ?link WHERE ?link#has_contradiction@value:true.
+
+QUERY sync_network_gaps:
+FIND ?link ?reason WHERE ?link#network_gap@?reason.
+
+QUERY sync_allow_witness:
+FIND ?link ?rule WHERE ?link#allow_witness@?rule.
+
+QUERY sync_deny_witness:
+FIND ?link ?rule WHERE ?link#deny_witness@?rule.
+
+QUERY sync_condition_matrix:
+FIND ?link ?cond WHERE ?link#requires_condition@?cond.
+
+QUERY sync_tlm_transactions:
+FIND ?tx ?link ?stage ?status WHERE ?tx#kind@entity:tlm_transaction AND ?tx#for_link@?link AND ?tx#stage@?stage AND ?tx#status@?status.
+
+QUERY sync_tlm_missing_stages:
+FIND ?link ?stage WHERE ?link#missing_tlm_stage@?stage.
+
+QUERY sync_tlm_failed_stages:
+FIND ?link ?stage WHERE ?link#tlm_stage_failed@?stage.
+
+// Query aliases for backward compatibility with earlier MFT naming.
+
+QUERY mft_migration_types:
+FIND ?migration ?type WHERE ?migration#kind@entity:migration AND ?migration#migration_type@?type.
+
+QUERY mft_link_migration_types:
+FIND ?link ?type WHERE ?link#kind@entity:sync_link AND ?link#migration_type@?type.
+
+QUERY mft_links_sync_state:
+FIND ?link ?state WHERE ?link#kind@entity:sync_link AND ?link#sync_state@?state.
+
+QUERY mft_in_sync_links:
+FIND ?link WHERE ?link#sync_state@value:in_sync.
+
+QUERY mft_assumed_in_sync_links:
+FIND ?link ?mech WHERE ?link#sync_state@value:assumed_in_sync AND ?link#asserted_by_mechanism@?mech.
+
+QUERY mft_out_of_sync_links:
+FIND ?link WHERE ?link#sync_state@value:out_of_sync.
+
+QUERY mft_missing_conditions:
+FIND ?link ?cond WHERE ?link#missing_condition@?cond.
+
+QUERY mft_contradictions:
+FIND ?link WHERE ?link#has_contradiction@value:true.
+
+QUERY mft_network_gaps:
+FIND ?link ?reason WHERE ?link#network_gap@?reason.
+
+QUERY mft_allow_witness:
+FIND ?link ?rule WHERE ?link#allow_witness@?rule.
+
+QUERY mft_deny_witness:
+FIND ?link ?rule WHERE ?link#deny_witness@?rule.
+
+QUERY mft_condition_matrix:
+FIND ?link ?cond WHERE ?link#requires_condition@?cond.
+
+QUERY mft_tlm_transactions:
+FIND ?tx ?link ?stage ?status WHERE ?tx#kind@entity:tlm_transaction AND ?tx#for_link@?link AND ?tx#stage@?stage AND ?tx#status@?status.
+
+QUERY mft_tlm_missing_stages:
+FIND ?link ?stage WHERE ?link#missing_tlm_stage@?stage.
+
+QUERY mft_tlm_failed_stages:
+FIND ?link ?stage WHERE ?link#tlm_stage_failed@?stage.

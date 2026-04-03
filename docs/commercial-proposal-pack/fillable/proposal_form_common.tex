@@ -1,0 +1,83 @@
+\documentclass[10pt]{article}
+\usepackage[margin=0.55in]{geometry}
+\usepackage{array}
+\usepackage{hyperref}
+\hypersetup{pdfborder={0 0 0}}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{2pt}
+\newcommand{\fld}[2]{\TextField[name=#1,width=#2,bordercolor={0.75 0.75 0.75},charsize=8pt]{}}
+\newcommand{\fldm}[2]{\TextField[name=#1,width=#2,multiline=true,height=2.4\baselineskip,bordercolor={0.75 0.75 0.75},charsize=8pt]{}}
+\newcommand{\flds}[1]{\TextField[name=#1,width=1.3cm,bordercolor={0.75 0.75 0.75},charsize=8pt]{}}
+
+\begin{document}
+\begin{Form}
+{\Large \textbf{One-Page Commercial Proposal: \IndustryTitle}}\\[-1pt]
+\rule{\linewidth}{0.4pt}
+
+\textbf{Client:} \fld{client}{5.8cm}
+\hfill
+\textbf{Date:} \fld{date}{2.7cm}\\
+\textbf{Sponsor:} \fld{sponsor}{5.2cm}
+\hfill
+\textbf{Prepared By:} \fld{prepared_by}{4.2cm}
+
+\textbf{Problem Statement}\\
+1) \fldm{problem_1}{\linewidth}\\
+2) \fldm{problem_2}{\linewidth}
+
+\textbf{Pilot Scope (6-10 Weeks)}\\
+1) \fldm{scope_1}{\linewidth}\\
+2) \fldm{scope_2}{\linewidth}
+
+\textbf{KPI Targets (90 Days)}\\[-4pt]
+\begin{tabular}{|p{3.8cm}|p{2.4cm}|p{2.4cm}|p{4.6cm}|}
+\hline
+\textbf{KPI} & \textbf{Baseline} & \textbf{Target} & \textbf{Source} \\
+\hline
+\fld{kpi_1}{3.7cm} & \fld{kpi_1_base}{2.3cm} & \fld{kpi_1_target}{2.3cm} & \fld{kpi_1_source}{4.5cm} \\
+\hline
+\fld{kpi_2}{3.7cm} & \fld{kpi_2_base}{2.3cm} & \fld{kpi_2_target}{2.3cm} & \fld{kpi_2_source}{4.5cm} \\
+\hline
+\fld{kpi_3}{3.7cm} & \fld{kpi_3_base}{2.3cm} & \fld{kpi_3_target}{2.3cm} & \fld{kpi_3_source}{4.5cm} \\
+\hline
+\end{tabular}
+
+\textbf{ROI Calculator Table}\\[-4pt]
+\begin{tabular}{|p{4.0cm}|p{1.7cm}|p{1.6cm}|p{1.6cm}|p{3.6cm}|}
+\hline
+\textbf{Driver} & \textbf{Volume} & \textbf{Unit \$} & \textbf{Imp.\%} & \textbf{Annual Benefit \$} \\
+\hline
+\fld{roi_d1}{3.9cm} & \flds{roi_v1} & \flds{roi_u1} & \flds{roi_i1} & \fld{roi_b1}{3.5cm} \\
+\hline
+\fld{roi_d2}{3.9cm} & \flds{roi_v2} & \flds{roi_u2} & \flds{roi_i2} & \fld{roi_b2}{3.5cm} \\
+\hline
+\fld{roi_d3}{3.9cm} & \flds{roi_v3} & \flds{roi_u3} & \flds{roi_i3} & \fld{roi_b3}{3.5cm} \\
+\hline
+\multicolumn{4}{|r|}{\textbf{Total Annual Benefit \$}} & \fld{roi_total_benefit}{3.5cm} \\
+\hline
+\multicolumn{4}{|r|}{\textbf{Annual Commercial Cost \$}} & \fld{roi_total_cost}{3.5cm} \\
+\hline
+\multicolumn{4}{|r|}{\textbf{ROI \%}} & \fld{roi_percent}{3.5cm} \\
+\hline
+\multicolumn{4}{|r|}{\textbf{Payback Months}} & \fld{roi_payback_months}{3.5cm} \\
+\hline
+\end{tabular}
+
+Formula reference:
+ROI=(AnnualBenefit-AnnualCost)/AnnualCost; \hspace{6pt}
+PaybackMonths=AnnualCost/(AnnualBenefit/12)
+
+\textbf{Commercial Offer and Decision Ask}\\
+Pilot Fee: \fld{pilot_fee}{2.8cm}
+\hfill
+Annual Subscription: \fld{annual_subscription}{2.8cm}
+\hfill
+Add-ons: \fld{addons}{4.0cm}\\
+Decision Needed By: \fld{decision_date}{3.0cm}
+\hfill
+Budget Ask: \fld{budget_ask}{3.0cm}
+\hfill
+Success Threshold: \fld{success_threshold}{3.3cm}
+\end{Form}
+\end{document}
+

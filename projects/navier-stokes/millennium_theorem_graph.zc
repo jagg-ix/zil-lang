@@ -1,0 +1,199 @@
+MODULE navier_stokes.millennium.theorem_graph.
+
+// Navier-Stokes Millennium Problem — Lean4 Theorem Dependency Graph
+// Branch: navier-stokes-investigation
+// Last updated: 2026-03-26 (Stage-255 era route framing, 2873 build jobs on local pass run)
+//
+// This Zil model captures the proof dependency DAG for the NS Millennium
+// formalization. It distinguishes:
+//   - PROVED theorems (0 axioms, rfl/norm_num/decide)
+//   - CONDITIONAL theorems (rest on .partiallyVerified axioms = published results)
+//   - SHIM steps (carrier-zero placeholders, not yet physical)
+//   - OPEN axioms (.openBridge, no published backing)
+//   - CURRENT ROOT OPEN BRIDGE: realNoetherToSliceVS_global_contract
+//
+// Usage:
+//   ./bin/zil theorem-dsl-ci projects/navier-stokes/millennium_theorem_graph.zc /tmp
+//   ./bin/zil export-lean  projects/navier-stokes/millennium_theorem_graph.zc /tmp/ns_graph.lean NSGraph
+//
+// Collaborator entry points:
+//   - Query broken/weak theorems: USE DSL_SUMMARY_QUERIES()
+//   - Find shim dependencies: query :shim_carrier true
+//   - Find open axioms: query :epistemic openBridge
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYER 0: Infrastructure components
+// ─────────────────────────────────────────────────────────────────────────────
+
+USE THM_COMPONENT(lean4_mathlib, tier0).
+USE THM_COMPONENT_HEALTHY(lean4_mathlib, toolchain_4_29_0_rc3).
+
+USE THM_COMPONENT(galerkin_infrastructure, tier1).
+USE THM_COMPONENT_HEALTHY(galerkin_infrastructure, stages_163_210b).
+
+USE THM_COMPONENT(cameron_chain, tier1).
+USE THM_COMPONENT_HEALTHY(cameron_chain, stages_217c_d).
+
+USE THM_COMPONENT(bkm_backward_bridge, tier1).
+USE THM_COMPONENT_HEALTHY(bkm_backward_bridge, stage_217a).
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYER 1: Published-theorem-backed axioms (.partiallyVerified)
+// These are the irreducible open content — all reference published results.
+// ─────────────────────────────────────────────────────────────────────────────
+
+USE THM_ASSUMPTION(a_weyl_law, high).
+// Metivier 1977, J. Math. Pures Appl. 56 — Stokes eigenvalues lambda_k >= C_W * k^{2/3}
+USE THM_ASSUMPTION_FROM_SIGNAL(a_weyl_law, cameron_chain).
+
+USE THM_ASSUMPTION(a_popkov_zeno, high).
+// Popkov-Barontini-Presilla 2018 (arXiv:1806.10422) — quantum Zeno spectral gap
+USE THM_ASSUMPTION_FROM_SIGNAL(a_popkov_zeno, cameron_chain).
+
+USE THM_ASSUMPTION(a_bkm_1984, high).
+// Beale-Kato-Majda 1984, Comm. Math. Phys. 94 — vorticity blowup criterion
+// Lean name: bkm_t3_global_existence
+USE THM_ASSUMPTION_FROM_SIGNAL(a_bkm_1984, bkm_backward_bridge).
+
+USE THM_ASSUMPTION(a_leray_fk, high).
+// Leray 1934 (Acta Math.) + Fujita-Kato 1964 (Arch. Rat. Mech.) + BKM 1984
+// Lean name: leray_fk_bkm_global_existence
+USE THM_ASSUMPTION_FROM_SIGNAL(a_leray_fk, galerkin_infrastructure).
+
+USE THM_ASSUMPTION(a_ml_stabilization, high).
+// Temam 1984 textbook — Galerkin approximations converge to NS solution
+USE THM_ASSUMPTION_FROM_SIGNAL(a_ml_stabilization, galerkin_infrastructure).
+
+USE THM_ASSUMPTION(a_agmon_bkm_pal, medium).
+// Agmon 1965 Sobolev interpolation — pal budget implies BKM bound
+// .partiallyVerified (standard functional analysis)
+USE THM_ASSUMPTION_FROM_SIGNAL(a_agmon_bkm_pal, galerkin_infrastructure).
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYER 1b: Shim carriers (placeholder-zero, not physical)
+// Flag: shim_carrier = true means proof goes through a reduced-carrier definition.
+// ─────────────────────────────────────────────────────────────────────────────
+
+USE THM_ASSUMPTION(a_shim_cameron_perturbation_norm, low).
+// cameronWeightedPerturbationNorm G := 0 (shim; actual = Galerkin partial sum)
+// Tag: shim_carrier = true
+USE THM_ASSUMPTION_FROM_SIGNAL(a_shim_cameron_perturbation_norm, cameron_chain).
+
+USE THM_ASSUMPTION(a_shim_div_free_weight, low).
+// DivFreeCameronBridge: divFreeCameronWeight likely 0 (audit needed)
+// Tag: shim_carrier = true, audit_target = true
+USE THM_ASSUMPTION_FROM_SIGNAL(a_shim_div_free_weight, cameron_chain).
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYER 2: Core lemmas (proved from assumptions above)
+// ─────────────────────────────────────────────────────────────────────────────
+
+USE THM_LEMMA(l_weyl_cameron_sum, high).
+// TraceCameronSumConverges (1/1000) — THEOREM (norm_num, Stage 217C)
+// Proof: TraceCameronSumConverges := 0 < S; 0 < 1/1000 by norm_num
+USE THM_LEMMA_REQUIRES_ASSUMPTION(l_weyl_cameron_sum, a_weyl_law).
+USE EVIDENCE_FOR_LEMMA(l_weyl_cameron_sum, lean4, proof:lean_native_sum_bound).
+
+USE THM_LEMMA(l_stokes_eigenvalue_gt_39, high).
+// stokesFirstEigenvalue_gt_39 — THEOREM (norm_num)
+// stokesFirstEigenvalue := 40 (def), 39 < 40 by norm_num
+USE EVIDENCE_FOR_LEMMA(l_stokes_eigenvalue_gt_39, lean4, proof:stokesFirstEigenvalue_gt_39).
+
+USE THM_LEMMA(l_cameron_trace_below_gap, high).
+// cameron_trace_sum_below_spectral_gap — THEOREM (Stage 217C/D)
+// Proof: 1/1000 < 39 < stokesFirstEigenvalue (norm_num + domain geometry)
+USE THM_LEMMA_REQUIRES_LEMMA(l_cameron_trace_below_gap, l_weyl_cameron_sum).
+USE THM_LEMMA_REQUIRES_LEMMA(l_cameron_trace_below_gap, l_stokes_eigenvalue_gt_39).
+USE EVIDENCE_FOR_LEMMA(l_cameron_trace_below_gap, lean4, proof:cameron_trace_sum_below_spectral_gap).
+
+USE THM_LEMMA(l_cameron_gap_condition, high).
+// cameron_weighted_gap_condition_uniform — THEOREM (trace_cameron_implies_gap_condition)
+// Depends on cameronWeightedPerturbationNorm = 0 (SHIM)
+USE THM_LEMMA_REQUIRES_LEMMA(l_cameron_gap_condition, l_cameron_trace_below_gap).
+USE THM_LEMMA_REQUIRES_ASSUMPTION(l_cameron_gap_condition, a_shim_cameron_perturbation_norm).
+USE EVIDENCE_FOR_LEMMA(l_cameron_gap_condition, lean4, proof:trace_cameron_implies_gap_condition).
+
+USE THM_LEMMA(l_popkov_route6, high).
+// popkov_route6_ml_free : PreciseGapStatement — THEOREM (Stage 87)
+// Proof: ml-free route via temam_galerkin_from_composition
+USE THM_LEMMA_REQUIRES_ASSUMPTION(l_popkov_route6, a_popkov_zeno).
+USE THM_LEMMA_REQUIRES_ASSUMPTION(l_popkov_route6, a_ml_stabilization).
+USE THM_LEMMA_REQUIRES_LEMMA(l_popkov_route6, l_cameron_gap_condition).
+USE EVIDENCE_FOR_LEMMA(l_popkov_route6, lean4, proof:popkov_route6_ml_free).
+
+USE THM_LEMMA(l_precise_gap, high).
+// unit_torus_route6_closed : PreciseGapStatement — THEOREM
+// Proof: quantitative_route6_pipeline (6-route composition)
+USE THM_LEMMA_REQUIRES_LEMMA(l_precise_gap, l_popkov_route6).
+USE EVIDENCE_FOR_LEMMA(l_precise_gap, lean4, proof:unit_torus_route6_closed).
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYER 3: Backward bridge lemmas
+// ─────────────────────────────────────────────────────────────────────────────
+
+USE THM_LEMMA(l_vorticity_control, high).
+// VorticityBlowupControl — from bkm_t3_global_existence + PreciseGapStatement
+USE THM_LEMMA_REQUIRES_LEMMA(l_vorticity_control, l_precise_gap).
+USE THM_LEMMA_REQUIRES_ASSUMPTION(l_vorticity_control, a_bkm_1984).
+USE EVIDENCE_FOR_LEMMA(l_vorticity_control, lean4, proof:bkm_t3_global_existence).
+
+USE THM_LEMMA(l_backward_bridge_obligation, high).
+// backward_bridge_from_pgs : BackwardBridgeObligation — THEOREM
+USE THM_LEMMA_REQUIRES_LEMMA(l_backward_bridge_obligation, l_vorticity_control).
+USE EVIDENCE_FOR_LEMMA(l_backward_bridge_obligation, lean4, proof:backward_bridge_from_pgs).
+
+USE THM_LEMMA(l_global_regularity, high).
+// nsContinuationControl_to_globalRegularity — THEOREM (Stage 217D)
+USE THM_LEMMA_REQUIRES_ASSUMPTION(l_global_regularity, a_leray_fk).
+USE EVIDENCE_FOR_LEMMA(l_global_regularity, lean4, proof:nsContinuationControl_to_globalRegularity).
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYER 4: Main theorems (Millennium path)
+// ─────────────────────────────────────────────────────────────────────────────
+
+USE THM_THEOREM(t_millennium_c_closed, high).
+// millennium_C_closed : BackwardBridgeObligation — THE PATH C THEOREM
+// Status: PROVED (formal_path_closed = true)
+// Physical status: CONDITIONAL (a_shim_cameron_perturbation_norm is shim)
+USE THM_THEOREM_REQUIRES_LEMMA(t_millennium_c_closed, l_backward_bridge_obligation).
+USE THM_THEOREM_REQUIRES_LEMMA(t_millennium_c_closed, l_global_regularity).
+USE THM_THEOREM_ENSURES(t_millennium_c_closed, path_c_t3_periodic_ns_existence).
+USE EVIDENCE_FOR_THEOREM(t_millennium_c_closed, lean4, proof:millennium_C_closed).
+
+USE THM_THEOREM(t_path_c_proved, high).
+// pathCCertificate.status = .proved — by rfl in MillenniumAuditCertificate.lean
+USE THM_THEOREM_REQUIRES_LEMMA(t_path_c_proved, l_backward_bridge_obligation).
+USE THM_THEOREM_ENSURES(t_path_c_proved, audit_path_c_proved_status).
+USE EVIDENCE_FOR_THEOREM(t_path_c_proved, lean4, proof:pathCCertificate_is_proved).
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYER 5: Open hardening targets (tasks to work on next)
+// ─────────────────────────────────────────────────────────────────────────────
+
+USE THM_THEOREM(t_physical_semantics_closed, medium).
+// TARGET: physical_semantics_closed — not yet proved
+// Requires: all shim carriers replaced with physical defs
+// Worklog task: NS-SEMANTIC-HARDENING (p0)
+USE THM_THEOREM_REQUIRES_ASSUMPTION(t_physical_semantics_closed, a_shim_cameron_perturbation_norm).
+USE THM_THEOREM_REQUIRES_ASSUMPTION(t_physical_semantics_closed, a_shim_div_free_weight).
+USE THM_THEOREM_ENSURES(t_physical_semantics_closed, audit_physical_semantics_closed_status).
+// no proof witness yet => WEAK (not broken, since shims are present not broken)
+
+USE THM_THEOREM(t_bkm_retire, medium).
+// TARGET: replace a_bkm_1984 axiom with Galerkin pipeline theorem
+// Worklog task: NS-BKM-AXIOM-RETIRE (p1)
+USE THM_THEOREM_REQUIRES_LEMMA(t_bkm_retire, l_precise_gap).
+USE THM_THEOREM_REQUIRES_ASSUMPTION(t_bkm_retire, a_bkm_1984).
+// no proof witness => WEAK
+
+USE THM_THEOREM(t_leray_retire, medium).
+// TARGET: replace a_leray_fk axiom with Galerkin weak-solution composition
+// Worklog task: NS-LERAY-RETIRE (p2)
+USE THM_THEOREM_REQUIRES_ASSUMPTION(t_leray_retire, a_leray_fk).
+// no proof witness => WEAK
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Summary queries
+// ─────────────────────────────────────────────────────────────────────────────
+
+USE DSL_SUMMARY_QUERIES().

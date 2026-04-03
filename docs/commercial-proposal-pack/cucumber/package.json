@@ -1,0 +1,12 @@
+{
+  "name": "zil-commercialization-cucumber",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Cucumber acceptance harness for commercialization governance scenarios.",
+  "scripts": {
+    "test": "cucumber-js commercialization-governance.feature --require steps/**/*.js"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^11.3.0"
+  }
+}

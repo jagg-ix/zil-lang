@@ -1,0 +1,100 @@
+MODULE sync.migration.tlm.logic.demo.
+
+// Demonstrates migration logic leveraging the TLM layer.
+// Case domains are examples only; the model is generic.
+
+USE SYNC_LOCATION(dc_a, datacenter, onprem_a).
+USE SYNC_LOCATION(dc_b, datacenter, onprem_b).
+USE SYNC_LOCATION(cloud_c, cloud, cloud_region_c).
+
+USE SYNC_SYSTEM(src_app, integration_app, seeburger, src_site).
+USE SYNC_SYSTEM(dst_dc_app, integration_app, target_stack, dst_dc_site).
+USE SYNC_SYSTEM(dst_cloud_app, managed_transfer_service, aws_mft, dst_cloud_site).
+
+USE SYNC_SYSTEM_IN_LOCATION(src_app, dc_a).
+USE SYNC_SYSTEM_IN_LOCATION(dst_dc_app, dc_b).
+USE SYNC_SYSTEM_IN_LOCATION(dst_cloud_app, cloud_c).
+
+USE SYNC_MIGRATION(mig_a_to_b, src_app, dst_dc_app, staged_cutover).
+USE SYNC_MIGRATION(mig_a_to_c, src_app, dst_cloud_app, progressive_cutover).
+
+USE SYNC_FLOW(flow_payroll, payroll, critical).
+USE SYNC_FLOW(flow_invoice, invoice, high).
+
+USE SYNC_LINK(link_dc_steady, src_app, dst_dc_app, flow_payroll).
+USE SYNC_LINK(link_cloud_drift, src_app, dst_cloud_app, flow_invoice).
+
+USE SYNC_LINK_IN_MIGRATION(link_dc_steady, mig_a_to_b).
+USE SYNC_LINK_IN_MIGRATION(link_cloud_drift, mig_a_to_c).
+
+USE SYNC_LINK_NETWORK(link_dc_steady, sftp, 22, enforce).
+USE SYNC_LINK_NETWORK(link_cloud_drift, sftp, 22, enforce).
+
+USE NET_PATH(path_a_b, src_app, dst_dc_app, mpls).
+USE NET_PATH(path_a_c, src_app, dst_cloud_app, vpn).
+USE NET_PATH_STATE(path_a_b, up, net_probe_ab).
+USE NET_PATH_STATE(path_a_c, up, net_probe_ac).
+
+USE SYNC_LINK_REQUIRES_PATH(link_dc_steady, path_a_b).
+USE SYNC_LINK_REQUIRES_PATH(link_cloud_drift, path_a_c).
+
+USE NET_RULE(rule_allow_ab, allow, src_app, dst_dc_app, sftp, 22).
+USE NET_RULE(rule_allow_ac, allow, src_app, dst_cloud_app, sftp, 22).
+
+USE SYNC_CONDITION(catalog_hash_equal, consistency).
+USE SYNC_CONDITION(watermark_within_sla, lag).
+
+USE SYNC_CONDITION_SIGNAL(catalog_hash_equal, transfer_catalog_hash_match).
+USE SYNC_CONDITION_SIGNAL(watermark_within_sla, transfer_watermark_within_sla).
+
+USE SYNC_LINK_REQUIRES(link_dc_steady, catalog_hash_equal).
+USE SYNC_LINK_REQUIRES(link_dc_steady, watermark_within_sla).
+USE SYNC_LINK_REQUIRES(link_cloud_drift, catalog_hash_equal).
+USE SYNC_LINK_REQUIRES(link_cloud_drift, watermark_within_sla).
+
+// All base conditions are healthy for both links.
+USE SYNC_INDICATION(src_app, link_dc_steady, transfer_catalog_hash_match, ok, src_digest_dc).
+USE SYNC_INDICATION(dst_dc_app, link_dc_steady, transfer_catalog_hash_match, ok, dst_digest_dc).
+USE SYNC_INDICATION(src_app, link_dc_steady, transfer_watermark_within_sla, ok, src_wm_dc).
+USE SYNC_INDICATION(dst_dc_app, link_dc_steady, transfer_watermark_within_sla, ok, dst_wm_dc).
+
+USE SYNC_INDICATION(src_app, link_cloud_drift, transfer_catalog_hash_match, ok, src_digest_cloud).
+USE SYNC_INDICATION(dst_cloud_app, link_cloud_drift, transfer_catalog_hash_match, ok, dst_digest_cloud).
+USE SYNC_INDICATION(src_app, link_cloud_drift, transfer_watermark_within_sla, ok, src_wm_cloud).
+USE SYNC_INDICATION(dst_cloud_app, link_cloud_drift, transfer_watermark_within_sla, ok, dst_wm_cloud).
+
+USE SYNC_MECHANISM_ASSERT(link_dc_steady, periodic_reconciler, high, recon_dc_20260318).
+USE SYNC_MECHANISM_ASSERT(link_cloud_drift, periodic_reconciler, high, recon_cloud_20260318).
+
+// TLM stage model.
+USE SYNC_TLM_COMPONENT(src_ctl, initiator).
+USE SYNC_TLM_COMPONENT(dst_dc_ctl, target).
+USE SYNC_TLM_COMPONENT(dst_cloud_ctl, target).
+
+USE SYNC_TLM_CHANNEL(ch_sync_dc, src_ctl, dst_dc_ctl, loosely_timed).
+USE SYNC_TLM_CHANNEL(ch_sync_cloud, src_ctl, dst_cloud_ctl, loosely_timed).
+
+USE SYNC_LINK_REQUIRES_TLM_STAGE(link_dc_steady, connect).
+USE SYNC_LINK_REQUIRES_TLM_STAGE(link_dc_steady, transfer).
+USE SYNC_LINK_REQUIRES_TLM_STAGE(link_dc_steady, commit).
+
+USE SYNC_LINK_REQUIRES_TLM_STAGE(link_cloud_drift, connect).
+USE SYNC_LINK_REQUIRES_TLM_STAGE(link_cloud_drift, transfer).
+USE SYNC_LINK_REQUIRES_TLM_STAGE(link_cloud_drift, commit).
+
+// link_dc_steady passes all TLM stages.
+USE SYNC_TLM_TX(tx_dc_connect, link_dc_steady, connect, link_connect, src_ctl, dst_dc_ctl, ch_sync_dc, loosely_timed).
+USE SYNC_TLM_ACCEPT(tx_dc_connect).
+USE SYNC_TLM_TX(tx_dc_transfer, link_dc_steady, transfer, data_transfer, src_ctl, dst_dc_ctl, ch_sync_dc, approximately_timed).
+USE SYNC_TLM_ACCEPT(tx_dc_transfer).
+USE SYNC_TLM_TX(tx_dc_commit, link_dc_steady, commit, commit_checkpoint, src_ctl, dst_dc_ctl, ch_sync_dc, loosely_timed).
+USE SYNC_TLM_ACCEPT(tx_dc_commit).
+
+// link_cloud_drift fails transfer stage and never accepts commit.
+USE SYNC_TLM_TX(tx_cloud_connect, link_cloud_drift, connect, link_connect, src_ctl, dst_cloud_ctl, ch_sync_cloud, loosely_timed).
+USE SYNC_TLM_ACCEPT(tx_cloud_connect).
+USE SYNC_TLM_TX(tx_cloud_transfer, link_cloud_drift, transfer, data_transfer, src_ctl, dst_cloud_ctl, ch_sync_cloud, approximately_timed).
+USE SYNC_TLM_FAIL(tx_cloud_transfer, timeout).
+USE SYNC_TLM_TX(tx_cloud_commit, link_cloud_drift, commit, commit_checkpoint, src_ctl, dst_cloud_ctl, ch_sync_cloud, loosely_timed).
+// no ACCEPT for commit => missing stage
+

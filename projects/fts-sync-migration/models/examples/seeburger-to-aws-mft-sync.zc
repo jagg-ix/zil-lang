@@ -1,0 +1,107 @@
+MODULE mft.migration.seeburger.dc.cloud.sync.demo.
+
+// Case-specific scenario using MFT compatibility macros.
+// Core abstraction lives in SYNC_* macros from mft-sync-macros.zc.
+
+// Locations.
+USE MFT_LOCATION(dc_east, datacenter, onprem_east).
+USE MFT_LOCATION(dc_west, datacenter, onprem_west).
+USE MFT_LOCATION(aws_use1, cloud, aws_us_east_1).
+
+// Systems in migration scope.
+USE MFT_SYSTEM(seeburger_dc1, seeburger, dc_east_site).
+USE MFT_SYSTEM(seeburger_dc2, seeburger, dc_west_site).
+USE MFT_SYSTEM(aws_mft_prod, aws_mft, aws_use1_site).
+
+USE MFT_SYSTEM_IN_LOCATION(seeburger_dc1, dc_east).
+USE MFT_SYSTEM_IN_LOCATION(seeburger_dc2, dc_west).
+USE MFT_SYSTEM_IN_LOCATION(aws_mft_prod, aws_use1).
+
+// Migration definitions:
+// - dc_to_dc
+// - dc_to_cloud
+USE MFT_MIGRATION(mig_dc_to_dc, seeburger_dc1, seeburger_dc2, staged_cutover).
+USE MFT_MIGRATION(mig_dc_to_cloud, seeburger_dc1, aws_mft_prod, progressive_cutover).
+
+// Transfer flows.
+USE MFT_FLOW(payroll_outbound, finance_payroll, critical).
+USE MFT_FLOW(invoices_inbound, finance_invoice, high).
+
+// Sync links.
+USE MFT_SYNC_LINK(link_payroll_dc, seeburger_dc1, seeburger_dc2, payroll_outbound).
+USE MFT_SYNC_LINK(link_invoices_cloud, seeburger_dc1, aws_mft_prod, invoices_inbound).
+
+USE MFT_LINK_IN_MIGRATION(link_payroll_dc, mig_dc_to_dc).
+USE MFT_LINK_IN_MIGRATION(link_invoices_cloud, mig_dc_to_cloud).
+
+// Basic network zones.
+USE NET_ZONE(zone_dc_east_mft, private, 10.10.10.0/24).
+USE NET_ZONE(zone_dc_west_mft, private, 10.20.10.0/24).
+USE NET_ZONE(zone_aws_mft, private, 172.16.10.0/24).
+
+USE NET_SYSTEM_IN_ZONE(seeburger_dc1, zone_dc_east_mft).
+USE NET_SYSTEM_IN_ZONE(seeburger_dc2, zone_dc_west_mft).
+USE NET_SYSTEM_IN_ZONE(aws_mft_prod, zone_aws_mft).
+
+// Network paths.
+USE NET_PATH(path_dc_to_dc, seeburger_dc1, seeburger_dc2, mpls).
+USE NET_PATH(path_dc_to_cloud, seeburger_dc1, aws_mft_prod, vpn).
+USE NET_PATH_STATE(path_dc_to_dc, up, netops_probe_20260318).
+USE NET_PATH_STATE(path_dc_to_cloud, up, netops_probe_20260318).
+
+USE MFT_LINK_REQUIRES_PATH(link_payroll_dc, path_dc_to_dc).
+USE MFT_LINK_REQUIRES_PATH(link_invoices_cloud, path_dc_to_cloud).
+
+// Link network policy context.
+USE MFT_LINK_NETWORK(link_payroll_dc, sftp, 22, enforce).
+USE MFT_LINK_NETWORK(link_invoices_cloud, sftp, 22, enforce).
+
+// Rules:
+// payroll path is allowed.
+USE NET_RULE(rule_allow_payroll_dc, allow, seeburger_dc1, seeburger_dc2, sftp, 22).
+
+// cloud path has explicit deny to demonstrate out-of-sync flagging.
+USE NET_RULE(rule_deny_invoices_cloud, deny, seeburger_dc1, aws_mft_prod, sftp, 22).
+
+// Canonical sync conditions.
+USE MFT_CONDITION(catalog_hash_equal, consistency).
+USE MFT_CONDITION(watermark_within_sla, lag).
+USE MFT_CONDITION(error_budget_green, reliability).
+
+USE MFT_CONDITION_SIGNAL(catalog_hash_equal, transfer_catalog_hash_match).
+USE MFT_CONDITION_SIGNAL(watermark_within_sla, transfer_watermark_within_sla).
+USE MFT_CONDITION_SIGNAL(error_budget_green, transfer_error_budget_green).
+
+// Link condition requirements.
+USE MFT_LINK_REQUIRES(link_payroll_dc, catalog_hash_equal).
+USE MFT_LINK_REQUIRES(link_payroll_dc, watermark_within_sla).
+USE MFT_LINK_REQUIRES(link_payroll_dc, error_budget_green).
+
+USE MFT_LINK_REQUIRES(link_invoices_cloud, catalog_hash_equal).
+USE MFT_LINK_REQUIRES(link_invoices_cloud, watermark_within_sla).
+USE MFT_LINK_REQUIRES(link_invoices_cloud, error_budget_green).
+
+// Observations for payroll (dc->dc): all healthy.
+USE MFT_INDICATION(seeburger_dc1, link_payroll_dc, transfer_catalog_hash_match, ok, digest_dc1_payroll).
+USE MFT_INDICATION(seeburger_dc2, link_payroll_dc, transfer_catalog_hash_match, ok, digest_dc2_payroll).
+
+USE MFT_INDICATION(seeburger_dc1, link_payroll_dc, transfer_watermark_within_sla, ok, watermark_dc1_payroll).
+USE MFT_INDICATION(seeburger_dc2, link_payroll_dc, transfer_watermark_within_sla, ok, watermark_dc2_payroll).
+
+USE MFT_INDICATION(seeburger_dc1, link_payroll_dc, transfer_error_budget_green, ok, error_budget_dc1_payroll).
+USE MFT_INDICATION(seeburger_dc2, link_payroll_dc, transfer_error_budget_green, ok, error_budget_dc2_payroll).
+
+USE MFT_MECHANISM_ASSERT(link_payroll_dc, nightly_reconciliation, high, reconciler_payroll_20260318).
+
+// Observations for invoices (dc->cloud): condition signals may look good,
+// but deny rule should still force network-gap out_of_sync.
+USE MFT_INDICATION(seeburger_dc1, link_invoices_cloud, transfer_catalog_hash_match, ok, digest_dc1_invoices).
+USE MFT_INDICATION(aws_mft_prod, link_invoices_cloud, transfer_catalog_hash_match, ok, digest_aws_invoices).
+
+USE MFT_INDICATION(seeburger_dc1, link_invoices_cloud, transfer_watermark_within_sla, ok, watermark_dc1_invoices).
+USE MFT_INDICATION(aws_mft_prod, link_invoices_cloud, transfer_watermark_within_sla, ok, watermark_aws_invoices).
+
+USE MFT_INDICATION(seeburger_dc1, link_invoices_cloud, transfer_error_budget_green, ok, error_budget_dc1_invoices).
+USE MFT_INDICATION(aws_mft_prod, link_invoices_cloud, transfer_error_budget_green, ok, error_budget_aws_invoices).
+
+USE MFT_MECHANISM_ASSERT(link_invoices_cloud, nightly_reconciliation, high, reconciler_invoices_20260318).

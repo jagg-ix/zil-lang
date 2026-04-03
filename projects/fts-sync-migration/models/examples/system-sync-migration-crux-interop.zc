@@ -1,0 +1,34 @@
+MODULE sync.migration.crux.interop.demo.
+
+// Crux-backed evidence/query integration sketch for migration-sync operations.
+// This model defines datasource contracts and guardrails; domain sync logic
+// remains in system-sync-migration-*.zc examples.
+
+PROVIDER crux_main [source="err/crux", version="1.18.0", language=native, engine=custom].
+
+SERVICE crux_control_plane [env=prod, criticality=high].
+SERVICE migration_sync_evidence [env=prod, criticality=high, provider=crux_main, uses=[crux_control_plane]].
+
+// Status/coordination endpoints.
+DATASOURCE crux_status [type=rest, format=json, provider=crux_main, poll_mode=interval, poll_every_ms=15000, url="http://127.0.0.1:3000/_crux/status"].
+DATASOURCE crux_sync [type=rest, format=json, provider=crux_main, poll_mode=interval, poll_every_ms=5000, url="http://127.0.0.1:3000/_crux/sync?timeout=500"].
+DATASOURCE crux_latest_completed_tx [type=rest, format=json, provider=crux_main, poll_mode=interval, poll_every_ms=15000, url="http://127.0.0.1:3000/_crux/latest-completed-tx"].
+
+// Query endpoint carrying current migration out-of-sync rows.
+// queryEdn decodes to:
+// {:find [e]
+//  :where [[e :sync/state "out_of_sync"]]}
+DATASOURCE crux_out_of_sync_view [type=rest, format=json, provider=crux_main, poll_mode=interval, poll_every_ms=15000, url="http://127.0.0.1:3000/_crux/query?queryEdn=%7B%3Afind%20%5Be%5D%20%3Awhere%20%5B%5Be%20%3Async%2Fstate%20%22out_of_sync%22%5D%5D%7D"].
+
+// Entity history endpoint example for bitemporal forensics.
+DATASOURCE crux_entity_history [type=rest, format=json, provider=crux_main, poll_mode=event, url="http://127.0.0.1:3000/_crux/entity?eid=sync_link%3Alink_invoices_cloud&history=true&sortOrder=desc&withDocs=true"].
+
+POLICY crux_node_live [condition="status_endpoint_ok AND sync_endpoint_ok", criticality=high].
+POLICY crux_evidence_view_available [condition="latest_completed_tx_present AND out_of_sync_view_queryable", criticality=high].
+POLICY crux_bitemporal_forensics_ready [condition="entity_history_endpoint_enabled", criticality=high].
+
+QUERY crux_provider_entities:
+FIND ?e WHERE ?e#provider@provider:crux_main.
+
+QUERY crux_datasource_contracts:
+FIND ?d ?u WHERE ?d#kind@entity:datasource AND ?d#provider@provider:crux_main AND ?d#url@?u.

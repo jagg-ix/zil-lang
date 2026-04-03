@@ -52,7 +52,7 @@ Backend engines:
 
 Tools:
 
-- `tla`, `lean4`, `z3`
+- `tla`, `lean4`, `z3`, `acl2`
 
 Obligation classes:
 
@@ -65,7 +65,7 @@ Feedback verdicts:
 Capabilities:
 
 - `fixpoint`, `stratified_negation`, `anti_join`, `incremental`
-- `emit_tla`, `emit_lean4`, `check_z3`
+- `emit_tla`, `emit_lean4`, `emit_acl2`, `check_z3`, `check_acl2`
 - `ingest_feedback`, `artifact_json`, `artifact_yaml`, `artifact_csv`
 
 Artifact formats:

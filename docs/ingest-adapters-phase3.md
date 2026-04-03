@@ -4,8 +4,9 @@ This phase introduces a minimal pull-mode ingest pipeline:
 
 - `src/zil/runtime/adapters/core.clj`: adapter registry and dispatch
 - `src/zil/runtime/adapters/rest.clj`: mock/local REST skeleton
-- `src/zil/runtime/adapters/file.clj`: file reader (`lines`, `text`, `edn`)
-- `src/zil/runtime/adapters/command.clj`: shell command runner
+- `src/zil/runtime/adapters/file.clj`: file reader (`lines`, `text`, `edn`, `json`, `yaml`, `csv`)
+- `src/zil/runtime/adapters/command.clj`: shell command runner (+ optional stdout parsing by `format`)
+- `src/zil/runtime/codec.clj`: shared format codec registry (`json`, `yaml`, `csv`, `edn`, `kv`, `text`)
 - `src/zil/runtime/ingest.clj`: datasource declaration to fact ingest
 
 ## Datasource Declaration Examples

@@ -1,0 +1,12 @@
+MODULE sync.migration.plugin.case.seeburger.aws_mft.
+
+// Case plugin:
+// apply standard enforced network policy for Seeburger/AWS-MFT links.
+MACRO SYNC_PLUGIN_CASE_SEEBURGER_AWS_MFT(link):
+EMIT sync_link:{{link}}#network_policy_mode@value:enforce.
+ENDMACRO.
+
+// Compatibility alias.
+MACRO MFT_PLUGIN_SEEBURGER_STANDARD_LINK(link):
+EMIT sync_link:{{link}}#network_policy_mode@value:enforce.
+ENDMACRO.

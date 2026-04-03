@@ -23,6 +23,7 @@ It answers:
 | Theorem incident CI | `./bin/zil theorem-ci <path> [out_dir] [bridge_module] [tla_module] [lean_namespace]` | One-shot theorem formal pipeline for time-critical operations. |
 | Theorem DSL CI | `./bin/zil theorem-dsl-ci <model.zc> [out_dir] [bridge_module] [tla_module] [lean_namespace] [summary_json]` | Macro-DSL theorem pipeline with operator summary JSON. |
 | TLM formal one-shot pipeline | `./tools/tlm_formal_ci.sh [model] [out_dir] [module] [namespace]` | Run LTS gate + constraint gate + TLA export + Lean export in one command. |
+| NS physical-closure feedback loop | `./tools/ns_physical_closure_feedback.sh [--profile ns_progress_profile\|ns_release_gate_profile]` | Build preprocessed model + run query CI + export JSON feedback artifacts + optional worklog note/run record. |
 | Runtime ingest one-shot | `zil.runtime.ingest/ingest-all!` | Pull from `DATASOURCE` declarations once. |
 | Runtime ingest continuous | `zil.runtime.ingest/start-all-pollers!` | Poll `DATASOURCE` declarations with `poll_mode=interval`. |
 

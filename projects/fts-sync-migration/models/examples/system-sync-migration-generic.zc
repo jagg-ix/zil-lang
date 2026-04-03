@@ -1,0 +1,87 @@
+MODULE sync.migration.generic.demo.
+
+// Generic migration-sync model.
+// Includes two cases:
+// 1) datacenter -> datacenter
+// 2) datacenter -> cloud
+//
+// Seeburger -> AWS MFT is represented as one specific case.
+
+USE SYNC_LOCATION(dc_east, datacenter, onprem_east).
+USE SYNC_LOCATION(dc_west, datacenter, onprem_west).
+USE SYNC_LOCATION(cloud_use1, cloud, aws_us_east_1).
+
+USE SYNC_SYSTEM(seeburger_dc1, integration_app, seeburger, dc_east_site).
+USE SYNC_SYSTEM(seeburger_dc2, integration_app, seeburger, dc_west_site).
+USE SYNC_SYSTEM(aws_mft_prod, managed_transfer_service, aws_mft, aws_use1_site).
+
+USE SYNC_SYSTEM_IN_LOCATION(seeburger_dc1, dc_east).
+USE SYNC_SYSTEM_IN_LOCATION(seeburger_dc2, dc_west).
+USE SYNC_SYSTEM_IN_LOCATION(aws_mft_prod, cloud_use1).
+
+USE SYNC_MIGRATION(mig_dc_to_dc, seeburger_dc1, seeburger_dc2, staged_cutover).
+USE SYNC_MIGRATION(mig_dc_to_cloud, seeburger_dc1, aws_mft_prod, progressive_cutover).
+
+USE SYNC_FLOW(payroll_outbound, finance_payroll, critical).
+USE SYNC_FLOW(invoices_inbound, finance_invoice, high).
+
+USE SYNC_LINK(link_payroll_dc, seeburger_dc1, seeburger_dc2, payroll_outbound).
+USE SYNC_LINK(link_invoices_cloud, seeburger_dc1, aws_mft_prod, invoices_inbound).
+
+USE SYNC_LINK_IN_MIGRATION(link_payroll_dc, mig_dc_to_dc).
+USE SYNC_LINK_IN_MIGRATION(link_invoices_cloud, mig_dc_to_cloud).
+
+USE NET_ZONE(zone_dc_east_mft, private, 10.10.10.0/24).
+USE NET_ZONE(zone_dc_west_mft, private, 10.20.10.0/24).
+USE NET_ZONE(zone_aws_mft, private, 172.16.10.0/24).
+
+USE NET_SYSTEM_IN_ZONE(seeburger_dc1, zone_dc_east_mft).
+USE NET_SYSTEM_IN_ZONE(seeburger_dc2, zone_dc_west_mft).
+USE NET_SYSTEM_IN_ZONE(aws_mft_prod, zone_aws_mft).
+
+USE NET_PATH(path_dc_to_dc, seeburger_dc1, seeburger_dc2, mpls).
+USE NET_PATH(path_dc_to_cloud, seeburger_dc1, aws_mft_prod, vpn).
+USE NET_PATH_STATE(path_dc_to_dc, up, netops_probe_20260318).
+USE NET_PATH_STATE(path_dc_to_cloud, up, netops_probe_20260318).
+
+USE SYNC_LINK_REQUIRES_PATH(link_payroll_dc, path_dc_to_dc).
+USE SYNC_LINK_REQUIRES_PATH(link_invoices_cloud, path_dc_to_cloud).
+
+USE SYNC_LINK_NETWORK(link_payroll_dc, sftp, 22, enforce).
+USE SYNC_LINK_NETWORK(link_invoices_cloud, sftp, 22, enforce).
+
+USE NET_RULE(rule_allow_payroll_dc, allow, seeburger_dc1, seeburger_dc2, sftp, 22).
+USE NET_RULE(rule_deny_invoices_cloud, deny, seeburger_dc1, aws_mft_prod, sftp, 22).
+
+USE SYNC_CONDITION(catalog_hash_equal, consistency).
+USE SYNC_CONDITION(watermark_within_sla, lag).
+USE SYNC_CONDITION(error_budget_green, reliability).
+
+USE SYNC_CONDITION_SIGNAL(catalog_hash_equal, transfer_catalog_hash_match).
+USE SYNC_CONDITION_SIGNAL(watermark_within_sla, transfer_watermark_within_sla).
+USE SYNC_CONDITION_SIGNAL(error_budget_green, transfer_error_budget_green).
+
+USE SYNC_LINK_REQUIRES(link_payroll_dc, catalog_hash_equal).
+USE SYNC_LINK_REQUIRES(link_payroll_dc, watermark_within_sla).
+USE SYNC_LINK_REQUIRES(link_payroll_dc, error_budget_green).
+
+USE SYNC_LINK_REQUIRES(link_invoices_cloud, catalog_hash_equal).
+USE SYNC_LINK_REQUIRES(link_invoices_cloud, watermark_within_sla).
+USE SYNC_LINK_REQUIRES(link_invoices_cloud, error_budget_green).
+
+USE SYNC_INDICATION(seeburger_dc1, link_payroll_dc, transfer_catalog_hash_match, ok, digest_dc1_payroll).
+USE SYNC_INDICATION(seeburger_dc2, link_payroll_dc, transfer_catalog_hash_match, ok, digest_dc2_payroll).
+USE SYNC_INDICATION(seeburger_dc1, link_payroll_dc, transfer_watermark_within_sla, ok, watermark_dc1_payroll).
+USE SYNC_INDICATION(seeburger_dc2, link_payroll_dc, transfer_watermark_within_sla, ok, watermark_dc2_payroll).
+USE SYNC_INDICATION(seeburger_dc1, link_payroll_dc, transfer_error_budget_green, ok, error_budget_dc1_payroll).
+USE SYNC_INDICATION(seeburger_dc2, link_payroll_dc, transfer_error_budget_green, ok, error_budget_dc2_payroll).
+USE SYNC_MECHANISM_ASSERT(link_payroll_dc, nightly_reconciliation, high, reconciler_payroll_20260318).
+
+USE SYNC_INDICATION(seeburger_dc1, link_invoices_cloud, transfer_catalog_hash_match, ok, digest_dc1_invoices).
+USE SYNC_INDICATION(aws_mft_prod, link_invoices_cloud, transfer_catalog_hash_match, ok, digest_aws_invoices).
+USE SYNC_INDICATION(seeburger_dc1, link_invoices_cloud, transfer_watermark_within_sla, ok, watermark_dc1_invoices).
+USE SYNC_INDICATION(aws_mft_prod, link_invoices_cloud, transfer_watermark_within_sla, ok, watermark_aws_invoices).
+USE SYNC_INDICATION(seeburger_dc1, link_invoices_cloud, transfer_error_budget_green, ok, error_budget_dc1_invoices).
+USE SYNC_INDICATION(aws_mft_prod, link_invoices_cloud, transfer_error_budget_green, ok, error_budget_aws_invoices).
+USE SYNC_MECHANISM_ASSERT(link_invoices_cloud, nightly_reconciliation, high, reconciler_invoices_20260318).
+
