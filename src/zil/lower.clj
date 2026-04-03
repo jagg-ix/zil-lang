@@ -4,7 +4,9 @@
             [clojure.string :as str]))
 
 (def stdlib-kinds
-  #{:service :host :datasource :metric :policy :event :provider :tm_atom :lts_atom})
+  #{:service :host :datasource :metric :policy :event :provider :tm_atom :lts_atom
+    :refines :corresponds :proof_obligation :language_profile :grammar_profile
+    :parser_adapter :dsl_profile :query_pack})
 
 (def required-attrs
   "Minimal required attrs for stdlib declarations."
@@ -12,7 +14,15 @@
    :provider #{:source}
    :metric #{:source}
    :tm_atom #{:states :alphabet :blank :initial :accept :reject :transitions}
-   :lts_atom #{:states :initial :transitions}})
+   :lts_atom #{:states :initial :transitions}
+   :refines #{:spec :impl}
+   :corresponds #{:left :right}
+   :proof_obligation #{:relation :statement :tool}
+   :language_profile #{:family :module_system}
+   :grammar_profile #{:language :notation :entrypoints}
+   :parser_adapter #{:language :input_profile :output_profile :runtime}
+   :dsl_profile #{:query_pack}
+   :query_pack #{:queries}})
 
 (def enum-values
   "Enum validation by declaration kind and attr key."
@@ -22,12 +32,28 @@
    :host {:environment #{:dev :qa :prod :dr :cqa}
           :type #{:physical :vm :container :pod :process}}
    :datasource {:type #{:rest :file :command :socket :websocket :pipe :cucumber}
-                :format #{:json :text :csv :edn :kv}
+                :format #{:json :text :csv :edn :kv :yaml :yml}
                 :poll_mode #{:event :interval}}
    :provider {:language #{:hcl :opentofu :terraform :native}
               :engine #{:opentofu :terraform :hcl_native :custom}}
    :event {:criticality #{:low :medium :high :critical}}
-   :policy {:criticality #{:low :medium :high :critical}}})
+   :policy {:criticality #{:low :medium :high :critical}}
+   :proof_obligation {:criticality #{:low :medium :high :critical}
+                      :status #{:open :pending :proved :failed :waived}
+                      :tool #{:z3 :tlaps :lean4 :acl2 :manual}
+                      :logic #{:all :qf_lia :qf_lra :qf_nia :qf_nra :qf_uf}
+                      :expectation #{:sat :unsat}}
+   :language_profile {:family #{:ocaml :sml :antlr :ebnf :hybrid}
+                      :module_system #{:ml_module :sml_structure_signature :none}}
+   :grammar_profile {:notation #{:ebnf :antlr4 :menhir :ocamlyacc :mlyacc :custom}
+                     :status #{:draft :stable :deprecated}}
+   :parser_adapter {:runtime #{:native :jvm :python :node :external}
+                    :input_profile #{:source_text :grammar_spec :typed_ast :ast}
+                    :output_profile #{:vetc_ir :core_tuples :lean_plan}
+                    :determinism #{:deterministic :best_effort}}
+   :dsl_profile {:planner_hint #{:as_is :bound_first :high_selectivity_first}
+                 :default_profile #{:auto :tm.det :lts :constraint}
+                 :verification_chain #{:tm.det :lts :constraint :proof_obligation :theorem_ci :vstack_ci :query_ci}}})
 
 (def service-relation-aliases
   {:depends :uses
@@ -41,6 +67,9 @@
 
 (declare normalize-entity-ref)
 
+(def refinement-target-kinds
+  #{:refines :corresponds})
+
 (defn entity-id
   "Stable string id for a declaration kind/name pair."
   [kind decl-name]
@@ -53,6 +82,7 @@
   (let [s (cond
             (keyword? v) (clojure.core/name v)
             (string? v) v
+            (symbol? v) (clojure.core/name v)
             :else nil)]
     (when s
       (keyword (str/lower-case (str/trim s))))))
@@ -91,8 +121,29 @@
 (defn- normalize-attr-value
   [kind attr-key v]
   (let [vals (attr-values v)
-        normalized (if (contains? provider-relations attr-key)
+        normalized (cond
+                     (contains? provider-relations attr-key)
                      (mapv #(normalize-entity-ref :provider %) vals)
+
+                     (and (= kind :proof_obligation) (= attr-key :relation))
+                     (mapv #(normalize-entity-ref :refines %) vals)
+
+                     (and (= kind :corresponds) (= attr-key :refines))
+                     (mapv #(normalize-entity-ref :refines %) vals)
+
+                     (and (= kind :grammar_profile) (= attr-key :language))
+                     (mapv #(normalize-entity-ref :language_profile %) vals)
+
+                     (and (= kind :parser_adapter) (= attr-key :language))
+                     (mapv #(normalize-entity-ref :language_profile %) vals)
+
+                     (and (= kind :parser_adapter) (= attr-key :grammar))
+                     (mapv #(normalize-entity-ref :grammar_profile %) vals)
+
+                     (and (= kind :dsl_profile) (= attr-key :query_pack))
+                     (mapv #(normalize-entity-ref :query_pack %) vals)
+
+                     :else
                      (mapv #(normalize-enum-value kind attr-key %) vals))]
     (if (and (coll? v) (not (map? v)))
       normalized
@@ -100,15 +151,22 @@
 
 (defn- normalize-attrs
   [kind attrs]
-  (reduce-kv
-   (fn [m raw-k raw-v]
-     (let [k (normalize-attr-key kind raw-k)
-           v (normalize-attr-value kind k raw-v)]
-       (if (and (contains? m k) (contains? dependency-relations k))
-         (assoc m k (merge-attr-values (get m k) v))
-         (assoc m k v))))
-   {}
-   attrs))
+  (let [normalized
+        (reduce-kv
+         (fn [m raw-k raw-v]
+           (let [k (normalize-attr-key kind raw-k)
+                 v (normalize-attr-value kind k raw-v)]
+             (if (and (contains? m k) (contains? dependency-relations k))
+               (assoc m k (merge-attr-values (get m k) v))
+               (assoc m k v))))
+         {}
+         attrs)]
+    (if (= kind :proof_obligation)
+      (cond-> normalized
+        (not (contains? normalized :logic)) (assoc :logic :all)
+        (not (contains? normalized :expectation)) (assoc :expectation :sat)
+        (not (contains? normalized :criticality)) (assoc :criticality :medium))
+      normalized)))
 
 (defn subject-value
   "Map scalar values to canonical subject tokens."
@@ -290,6 +348,29 @@
                       {:name name :source source}))))
   true)
 
+(defn- validate-query-pack!
+  [{:keys [name attrs]}]
+  (let [queries (attr-values (:queries attrs))
+        query-names (map token->name queries)
+        must-return (if (contains? attrs :must_return)
+                      (map token->name (attr-values (:must_return attrs)))
+                      [])
+        query-set (set query-names)]
+    (when (empty? query-names)
+      (throw (ex-info "QUERY_PACK must define at least one query"
+                      {:name name})))
+    (when (some str/blank? query-names)
+      (throw (ex-info "QUERY_PACK query names must be non-empty"
+                      {:name name :queries query-names})))
+    (when (some str/blank? must-return)
+      (throw (ex-info "QUERY_PACK must_return names must be non-empty"
+                      {:name name :must_return must-return})))
+    (let [missing (vec (remove query-set must-return))]
+      (when (seq missing)
+        (throw (ex-info "QUERY_PACK must_return entries must be included in queries"
+                        {:name name :must_return must-return :queries query-names :missing missing})))))
+  true)
+
 (defn- required-attr-check!
   [{:keys [kind attrs name]}]
   (let [required (get required-attrs kind #{})
@@ -314,6 +395,8 @@
   (required-attr-check! decl)
   (when (= kind :provider)
     (validate-provider! {:name name :attrs attrs}))
+  (when (= kind :query_pack)
+    (validate-query-pack! {:name name :attrs attrs}))
   (when (= kind :tm_atom)
     (validate-tm-atom! {:name name :attrs attrs}))
   (when (= kind :lts_atom)
@@ -344,6 +427,36 @@
   [attrs rel]
   (map #(normalize-entity-ref :provider %)
        (attr-values (get attrs rel []))))
+
+(defn- validate-refinement-references!
+  [declarations]
+  (let [idx (declaration-index declarations)]
+    (doseq [{:keys [kind name attrs]} declarations
+            :when (= kind :corresponds)
+            :let [entity (entity-id kind name)
+                  attrs* (normalize-attrs kind attrs)
+                  refs (attr-values (get attrs* :refines []))]
+            ref refs]
+      (let [target (get idx ref)]
+        (when-not target
+          (throw (ex-info "CORRESPONDS reference not found"
+                          {:entity entity :relation :refines :target ref})))
+        (when-not (= :refines (:kind target))
+          (throw (ex-info "CORRESPONDS :refines must target a REFINES declaration"
+                          {:entity entity :target ref :target-kind (:kind target)})))))
+    (doseq [{:keys [kind name attrs]} declarations
+            :when (= kind :proof_obligation)
+            :let [entity (entity-id kind name)
+                  attrs* (normalize-attrs kind attrs)
+                  refs (attr-values (:relation attrs*))]
+            ref refs]
+      (let [target (get idx ref)]
+        (when-not target
+          (throw (ex-info "PROOF_OBLIGATION relation reference not found"
+                          {:entity entity :relation :relation :target ref})))
+        (when-not (contains? refinement-target-kinds (:kind target))
+          (throw (ex-info "PROOF_OBLIGATION relation must target REFINES or CORRESPONDS"
+                          {:entity entity :target ref :target-kind (:kind target)})))))))
 
 (defn- validate-service-dependencies!
   [declarations]
@@ -405,6 +518,75 @@
                           {:entity entity
                            :relation rel
                            :provider pref
+                           :target-kind (:kind target)})))))))
+
+(defn- validate-dsl-profile-references!
+  [declarations]
+  (let [idx (declaration-index declarations)]
+    (doseq [{:keys [kind name attrs]} declarations
+            :when (= kind :dsl_profile)
+            :let [entity (entity-id kind name)
+                  attrs* (normalize-attrs kind attrs)
+                  qpacks (attr-values (:query_pack attrs*))]
+            qpack qpacks]
+      (let [target (get idx qpack)]
+        (when-not target
+          (throw (ex-info "DSL_PROFILE query_pack reference not found"
+                          {:dsl_profile entity :query_pack qpack})))
+        (when-not (= :query_pack (:kind target))
+          (throw (ex-info "DSL_PROFILE query_pack must reference QUERY_PACK declaration"
+                          {:dsl_profile entity
+                           :query_pack qpack
+                           :target-kind (:kind target)})))))))
+
+(defn- validate-language-grammar-references!
+  [declarations]
+  (let [idx (declaration-index declarations)]
+    (doseq [{:keys [kind name attrs]} declarations
+            :when (= kind :grammar_profile)
+            :let [entity (entity-id kind name)
+                  attrs* (normalize-attrs kind attrs)
+                  refs (attr-values (:language attrs*))]
+            ref refs]
+      (let [target (get idx ref)]
+        (when-not target
+          (throw (ex-info "GRAMMAR_PROFILE language reference not found"
+                          {:grammar_profile entity :language ref})))
+        (when-not (= :language_profile (:kind target))
+          (throw (ex-info "GRAMMAR_PROFILE language must reference LANGUAGE_PROFILE declaration"
+                          {:grammar_profile entity
+                           :language ref
+                           :target-kind (:kind target)})))))
+    (doseq [{:keys [kind name attrs]} declarations
+            :when (= kind :parser_adapter)
+            :let [entity (entity-id kind name)
+                  attrs* (normalize-attrs kind attrs)
+                  language-refs (attr-values (:language attrs*))
+                  grammar-refs (attr-values (get attrs* :grammar []))]
+            ref language-refs]
+      (let [target (get idx ref)]
+        (when-not target
+          (throw (ex-info "PARSER_ADAPTER language reference not found"
+                          {:parser_adapter entity :language ref})))
+        (when-not (= :language_profile (:kind target))
+          (throw (ex-info "PARSER_ADAPTER language must reference LANGUAGE_PROFILE declaration"
+                          {:parser_adapter entity
+                           :language ref
+                           :target-kind (:kind target)})))))
+    (doseq [{:keys [kind name attrs]} declarations
+            :when (= kind :parser_adapter)
+            :let [entity (entity-id kind name)
+                  attrs* (normalize-attrs kind attrs)
+                  grammar-refs (attr-values (get attrs* :grammar []))]
+            ref grammar-refs]
+      (let [target (get idx ref)]
+        (when-not target
+          (throw (ex-info "PARSER_ADAPTER grammar reference not found"
+                          {:parser_adapter entity :grammar ref})))
+        (when-not (= :grammar_profile (:kind target))
+          (throw (ex-info "PARSER_ADAPTER grammar must reference GRAMMAR_PROFILE declaration"
+                          {:parser_adapter entity
+                           :grammar ref
                            :target-kind (:kind target)})))))))
 
 (defn- service-use-edges
@@ -469,6 +651,9 @@
   (validate-service-graph! declarations)
   (validate-metric-sources! declarations)
   (validate-provider-references! declarations)
+  (validate-dsl-profile-references! declarations)
+  (validate-language-grammar-references! declarations)
+  (validate-refinement-references! declarations)
   true)
 
 (defn- dependency-facts

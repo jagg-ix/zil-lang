@@ -229,7 +229,7 @@
   (split-top-level-comma s "macro arguments"))
 
 (def stdlib-declaration-re
-  #"(?i)^(SERVICE|HOST|DATASOURCE|METRIC|POLICY|EVENT|PROVIDER|TM_ATOM|LTS_ATOM)\s+([A-Za-z0-9_.:-]+)(?:\s*\[(.*)\])?\.\s*$")
+  #"(?i)^(SERVICE|HOST|DATASOURCE|METRIC|POLICY|EVENT|PROVIDER|TM_ATOM|LTS_ATOM|REFINES|CORRESPONDS|PROOF_OBLIGATION|LANGUAGE_PROFILE|GRAMMAR_PROFILE|PARSER_ADAPTER|DSL_PROFILE|QUERY_PACK)\s+([A-Za-z0-9_.:-]+)(?:\s*\[(.*)\])?\.\s*$")
 
 (defn parse-stdlib-declaration
   "Parse one standard-library declaration line.
@@ -510,10 +510,13 @@
   [facts-by-rel literal env]
   (boolean (seq (match-positive facts-by-rel literal env))))
 
+(declare plan-body-literals)
+
 (defn- eval-body
-  [pos-facts-by-rel neg-facts-by-rel body]
-  (loop [envs [{}]
-         lits body]
+  [pos-facts-by-rel neg-facts-by-rel body planner-hint]
+  (let [lits* (plan-body-literals pos-facts-by-rel body planner-hint)]
+    (loop [envs [{}]
+           lits lits*]
     (if (empty? lits)
       envs
       (let [{:keys [neg?] :as lit} (first lits)
@@ -521,7 +524,7 @@
                         (filterv #(not (has-match? neg-facts-by-rel (dissoc lit :neg?) %))
                                  envs)
                         (vec (mapcat #(match-positive pos-facts-by-rel lit %) envs)))]
-        (recur next-envs (rest lits))))))
+          (recur next-envs (rest lits)))))))
 
 (defn- ground-term
   [env t]
@@ -541,19 +544,115 @@
   [facts]
   (group-by :relation facts))
 
+(defn- token->name
+  [v]
+  (cond
+    (string? v) v
+    (keyword? v) (name v)
+    (symbol? v) (name v)
+    :else (str v)))
+
+(defn- attr-values
+  [v]
+  (if (and (coll? v) (not (map? v)))
+    v
+    [v]))
+
+(def ^:private default-planner-hint :high_selectivity_first)
+
+(defn- planner-hint-token
+  [v]
+  (keyword (str/lower-case (token->name v))))
+
+(defn planner-hint-from-declarations
+  "Resolve planner hint from DSL_PROFILE declarations.
+  If no explicit hint is present, fallback to `default-planner-hint`."
+  [declarations]
+  (let [hints (->> declarations
+                   (filter #(= :dsl_profile (:kind %)))
+                   (map #(get-in % [:attrs :planner_hint]))
+                   (remove nil?)
+                   (map planner-hint-token)
+                   vec)]
+    (or (first hints) default-planner-hint)))
+
+(defn- literal-variables
+  [lit]
+  (literal-vars lit))
+
+(defn- literal-constant-count
+  [{:keys [object subject attrs]}]
+  (let [base (+ (if (variable-token? object) 0 1)
+                (if (variable-token? subject) 0 1))
+        attr-constants (count (remove variable-token? (vals attrs)))]
+    (+ base attr-constants)))
+
+(defn- relation-cardinality
+  [facts-by-rel rel]
+  (count (get facts-by-rel rel [])))
+
+(defn- choose-best-literal
+  [remaining bound-vars facts-by-rel planner-hint]
+  (let [scored
+        (map-indexed
+         (fn [idx lit]
+           (let [lit-vars (literal-variables lit)
+                 bound-count (count (filter bound-vars lit-vars))
+                 const-count (literal-constant-count lit)
+                 rel-size (relation-cardinality facts-by-rel (:relation lit))
+                 score (case planner-hint
+                         :bound_first [(- bound-count) rel-size (- const-count) idx]
+                         :high_selectivity_first [rel-size (- bound-count) (- const-count) idx]
+                         ;; fallback keeps deterministic behavior close to source order
+                         [idx])]
+             {:idx idx
+              :lit lit
+              :score score}))
+         remaining)]
+    (first (sort-by :score scored))))
+
+(defn- plan-positive-literals
+  [facts-by-rel positives planner-hint]
+  (if (or (= planner-hint :as_is)
+          (<= (count positives) 1))
+    positives
+    (loop [remaining (vec positives)
+           bound-vars #{}
+           out []]
+      (if (empty? remaining)
+        out
+        (let [{:keys [idx lit]} (choose-best-literal remaining bound-vars facts-by-rel planner-hint)
+              lit-vars (set (literal-variables lit))
+              next-remaining (vec (concat (subvec remaining 0 idx)
+                                          (subvec remaining (inc idx))))]
+          (recur next-remaining
+                 (into bound-vars lit-vars)
+                 (conj out lit)))))))
+
+(defn plan-body-literals
+  "Return planned body literal order.
+
+  Positive literals are reordered according to planner hint.
+  Negative literals stay at the end to preserve stratified-negation execution shape."
+  [facts-by-rel body planner-hint]
+  (let [positives (vec (remove :neg? body))
+        negatives (vec (filter :neg? body))
+        planned-pos (plan-positive-literals facts-by-rel positives planner-hint)]
+    (vec (concat planned-pos negatives))))
+
 (defn- apply-rule
-  [rule pos-index neg-index]
-  (let [envs (eval-body pos-index neg-index (:if rule))]
+  [rule pos-index neg-index planner-hint]
+  (let [envs (eval-body pos-index neg-index (:if rule) planner-hint)]
     (into #{}
           (mapcat (fn [env] (map #(ground-fact env %) (:then rule))) envs))))
 
 (defn- eval-stratum
-  [base-facts rules]
+  [base-facts rules planner-hint]
   (loop [current (set base-facts)]
     (let [pos-index (facts->index current)
           neg-index (facts->index base-facts)
           derived (into #{}
-                        (mapcat #(apply-rule % pos-index neg-index) rules))
+                        (mapcat #(apply-rule % pos-index neg-index planner-hint) rules))
           new-facts (cset/difference derived current)]
       (if (empty? new-facts)
         (cset/difference current (set base-facts))
@@ -562,35 +661,278 @@
 (defn run-query
   "Evaluate one query against a fact set.
   Returns {:vars [...] :rows [[...]]}."
-  [facts {:keys [find where]}]
+  [facts {:keys [find where]} planner-hint]
   (let [index (facts->index facts)
-        envs (eval-body index index where)
+        where* (plan-body-literals index where planner-hint)
+        envs (eval-body index index where* planner-hint)
         rows (->> envs
                   (mapv (fn [env] (mapv #(get env %) find)))
                   distinct
                   vec)]
     {:vars find :rows rows}))
 
+(defn- canonical-ns-ref
+  [prefix v]
+  (let [raw (-> v token->name str/trim)
+        pfx (str (name prefix) ":")]
+    (if (str/starts-with? raw pfx)
+      (subs raw (count pfx))
+      raw)))
+
+(defn- parse-query-pack
+  [{:keys [name attrs]}]
+  (let [queries (->> (attr-values (:queries attrs))
+                     (map token->name)
+                     (map str/trim)
+                     (remove str/blank?)
+                     vec)
+        must-return (->> (if (contains? attrs :must_return)
+                           (attr-values (:must_return attrs))
+                           [])
+                         (map token->name)
+                         (map str/trim)
+                         (remove str/blank?)
+                         vec)
+        canonical (canonical-ns-ref :query_pack name)]
+    {:name canonical
+     :source_name name
+     :queries queries
+     :must_return must-return}))
+
+(defn- parse-dsl-profile
+  [{:keys [name attrs]}]
+  (let [query-packs (->> (attr-values (:query_pack attrs))
+                         (map #(canonical-ns-ref :query_pack %))
+                         (remove str/blank?)
+                         vec)
+        canonical (canonical-ns-ref :dsl_profile name)]
+    {:name canonical
+     :source_name name
+     :query_packs query-packs}))
+
+(defn- select-dsl-profiles
+  [profiles profile-name]
+  (if (some? profile-name)
+    (let [wanted (canonical-ns-ref :dsl_profile profile-name)
+          selected (filterv #(= wanted (:name %)) profiles)]
+      (when (empty? selected)
+        (throw (ex-info "Requested DSL profile not found"
+                        {:profile profile-name
+                         :available (mapv :name profiles)})))
+      selected)
+    profiles))
+
+(defn- query-ci-selection
+  [{:keys [queries declarations]} profile-name]
+  (let [query-defs (mapv :name queries)
+        query-def-set (set query-defs)
+        packs (->> declarations
+                   (filter #(= :query_pack (:kind %)))
+                   (map parse-query-pack)
+                   vec)
+        pack-index (into {}
+                         (map (fn [p] [(:name p) p]))
+                         packs)
+        profiles (->> declarations
+                      (filter #(= :dsl_profile (:kind %)))
+                      (map parse-dsl-profile)
+                      vec)
+        selected-profiles (select-dsl-profiles profiles profile-name)
+        selected-pack-names (if (seq selected-profiles)
+                              (->> selected-profiles
+                                   (mapcat :query_packs)
+                                   distinct
+                                   vec)
+                              [])
+        selected-packs (->> selected-pack-names
+                            (map #(get pack-index %))
+                            (remove nil?)
+                            vec)
+        missing-packs (->> selected-pack-names
+                           (filter #(nil? (get pack-index %)))
+                           vec)
+        selected-queries (if (seq selected-packs)
+                           (->> selected-packs
+                                (mapcat :queries)
+                                distinct
+                                vec)
+                           query-defs)
+        selected-query-set (set selected-queries)
+        missing-query-defs (->> selected-queries
+                                (filter #(not (contains? query-def-set %)))
+                                vec)
+        must-return (->> selected-packs
+                         (mapcat :must_return)
+                         distinct
+                         vec)
+        active-query-set (cset/difference selected-query-set (set missing-query-defs))]
+    {:profiles profiles
+     :selected_profiles selected-profiles
+     :packs packs
+     :selected_packs selected-packs
+     :missing_packs missing-packs
+     :query_defs query-defs
+     :selected_queries selected-queries
+     :active_query_set active-query-set
+     :missing_query_defs missing-query-defs
+     :must_return must-return}))
+
 (defn execute-compiled
   "Execute compiled program and return final facts + query results."
-  [{:keys [module facts rules queries declarations]}]
-  (let [strata (sort (distinct (map :stratum rules)))
-        by-stratum (group-by :stratum rules)
-        final-facts (reduce
-                     (fn [acc s]
-                       (let [derived (eval-stratum acc (get by-stratum s []))]
-                         (into acc derived)))
-                     (set facts)
-                     strata)
-        query-results (into {}
-                            (for [q queries]
-                              [(:name q) (run-query final-facts q)]))]
-    {:module module
-     :facts (->> final-facts
-                 (sort-by (juxt :object :relation :subject))
-                 vec)
-     :declarations declarations
-     :queries query-results}))
+  ([compiled]
+   (execute-compiled compiled {}))
+  ([{:keys [module facts rules queries declarations]}
+    {:keys [query-names]}]
+   (let [planner-hint (planner-hint-from-declarations declarations)
+         strata (sort (distinct (map :stratum rules)))
+         by-stratum (group-by :stratum rules)
+         final-facts (reduce
+                      (fn [acc s]
+                        (let [derived (eval-stratum acc (get by-stratum s []) planner-hint)]
+                          (into acc derived)))
+                      (set facts)
+                      strata)
+         selected-query-set (some->> query-names (into #{}))
+         selected-queries (if (seq selected-query-set)
+                            (filterv #(contains? selected-query-set (:name %)) queries)
+                            queries)
+         missing-query-names (if (seq selected-query-set)
+                               (->> selected-query-set
+                                    (remove (set (map :name queries)))
+                                    sort
+                                    vec)
+                               [])
+         query-results (into {}
+                             (for [q selected-queries]
+                               [(:name q) (run-query final-facts q planner-hint)]))]
+     {:module module
+      :facts (->> final-facts
+                  (sort-by (juxt :object :relation :subject))
+                  vec)
+      :planner_hint planner-hint
+      :declarations declarations
+      :selected_query_names (mapv :name selected-queries)
+      :missing_query_names missing-query-names
+      :queries query-results})))
+
+(defn query-plan-compiled
+  "Build a planner report (without evaluating rules to fixpoint)."
+  [{:keys [module facts queries declarations]}]
+  (let [planner-hint (planner-hint-from-declarations declarations)
+        idx (facts->index facts)
+        relation-cardinality (->> idx
+                                  (map (fn [[rel rows]]
+                                         [rel (count rows)]))
+                                  (sort-by (comp name first))
+                                  vec)
+        active-dsl-profiles (->> declarations
+                                 (filter #(= :dsl_profile (:kind %)))
+                                 (map :name)
+                                 sort
+                                 vec)
+        planned-queries
+        (mapv
+         (fn [{:keys [name find where]}]
+           (let [planned-where (plan-body-literals idx where planner-hint)]
+             {:name name
+              :find find
+              :original_relations (mapv :relation where)
+              :planned_relations (mapv :relation planned-where)
+              :where_original where
+              :where_planned planned-where}))
+         queries)]
+    {:ok true
+     :module module
+     :planner_hint planner-hint
+     :active_dsl_profiles active-dsl-profiles
+     :relation_cardinality relation-cardinality
+     :queries planned-queries}))
+
+(defn query-plan-program
+  "Parse + compile + return adaptive query plan report for ZIL source text."
+  [text]
+  (-> text
+      compile-program
+      query-plan-compiled))
+
+(defn query-plan-file
+  "Read source file and return adaptive query plan report."
+  [path]
+  (query-plan-program (slurp path)))
+
+(defn query-ci-compiled
+  "Run DSL-aware query CI checks over a compiled program.
+
+  Options:
+  - :profile optional DSL_PROFILE name. If omitted, all DSL profiles are active.
+  - :include_rows include full query rows in report (default: true)."
+  ([compiled]
+   (query-ci-compiled compiled {}))
+  ([compiled {:keys [profile include_rows]
+              :or {include_rows true}}]
+   (let [{:keys [module declarations]}
+         compiled
+         planner-hint (planner-hint-from-declarations declarations)
+         {:keys [profiles selected_profiles selected_packs missing_packs
+                 query_defs selected_queries active_query_set missing_query_defs must_return]}
+         (query-ci-selection compiled profile)
+         exec (execute-compiled compiled {:query-names active_query_set})
+         must-return-checks
+         (mapv
+          (fn [query-name]
+            (let [rows (get-in exec [:queries query-name :rows] [])
+                  row-count (count rows)]
+              {:query query-name
+               :row_count row-count
+               :ok (pos? row-count)}))
+          must_return)
+         failed-must-return (->> must-return-checks
+                                 (remove :ok)
+                                 (mapv :query))
+         must-return-set (set must_return)
+         query-summary
+         (->> (keys (:queries exec))
+              sort
+              (mapv (fn [qname]
+                      {:query qname
+                       :row_count (count (get-in exec [:queries qname :rows] []))
+                       :must_return (contains? must-return-set qname)})))
+         ok? (and (empty? missing_packs)
+                  (empty? missing_query_defs)
+                  (empty? failed-must-return))]
+     {:ok ok?
+      :module module
+      :planner_hint planner-hint
+      :requested_profile (when profile (canonical-ns-ref :dsl_profile profile))
+      :active_dsl_profiles (mapv :name profiles)
+      :selected_dsl_profiles (mapv :name selected_profiles)
+      :selected_query_packs (mapv :name selected_packs)
+      :query_defs query_defs
+      :selected_queries selected_queries
+      :query_summary query-summary
+      :checks {:missing_query_packs missing_packs
+               :missing_query_defs missing_query_defs
+               :must_return must-return-checks
+               :failed_must_return failed-must-return}
+      :queries (if include_rows (:queries exec) {})
+      :facts_count (count (:facts exec))
+      :declarations_count (count declarations)})))
+
+(defn query-ci-program
+  "Parse + compile + run query CI over ZIL source text."
+  ([text]
+   (query-ci-program text {}))
+  ([text opts]
+   (-> text
+       compile-program
+       (query-ci-compiled opts))))
+
+(defn query-ci-file
+  "Read source file and run query CI."
+  ([path]
+   (query-ci-file path {}))
+  ([path opts]
+   (query-ci-program (slurp path) opts)))
 
 (defn execute-program
   "Parse + compile + execute Zil source text."

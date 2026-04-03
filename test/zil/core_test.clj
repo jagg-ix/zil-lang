@@ -13,6 +13,57 @@ FIND ?x WHERE ?x#mirrored_by@?y.
     (is (= [["app:a"]]
            (get-in out [:queries "mirrors" :rows])))))
 
+(deftest query-plan-adaptive-ordering-test
+  (let [program "MODULE qp.demo.
+QUERY_PACK qp_main [queries=[q1]].
+DSL_PROFILE qp_profile [query_pack=qp_main, planner_hint=high_selectivity_first].
+app:a#r_big@app:b.
+app:c#r_big@app:d.
+node:fixed#r_small@value:true.
+QUERY q1:
+FIND ?x WHERE ?x#r_big@?y AND node:fixed#r_small@?x.
+"
+        plan (core/query-plan-program program)
+        q1 (->> (:queries plan)
+                (filter #(= "q1" (:name %)))
+                first)]
+    (is (= :high_selectivity_first (:planner_hint plan)))
+    (is (= [:r_small :r_big] (:planned_relations q1)))))
+
+(deftest query-ci-dsl-profile-selection-test
+  (let [program "MODULE query.ci.demo.
+QUERY_PACK ops_pack [queries=[q_ops], must_return=[q_ops]].
+QUERY_PACK infra_pack [queries=[q_infra]].
+DSL_PROFILE ops [query_pack=ops_pack].
+DSL_PROFILE infra [query_pack=infra_pack].
+svc:api#kind@entity:service.
+svc:db#kind@entity:service.
+QUERY q_ops:
+FIND ?x WHERE ?x#kind@entity:service.
+QUERY q_infra:
+FIND ?x WHERE ?x#kind@entity:host.
+"
+        report (core/query-ci-program program {:profile "ops"})]
+    (is (:ok report))
+    (is (= ["ops"] (:selected_dsl_profiles report)))
+    (is (= ["ops_pack"] (:selected_query_packs report)))
+    (is (= ["q_ops"] (sort (:selected_queries report))))
+    (is (= 2 (get-in report [:checks :must_return 0 :row_count])))
+    (is (= #{"q_ops"} (set (keys (:queries report)))))))
+
+(deftest query-ci-must-return-failure-test
+  (let [program "MODULE query.ci.fail.demo.
+QUERY_PACK ops_pack [queries=[q_empty], must_return=[q_empty]].
+DSL_PROFILE ops [query_pack=ops_pack].
+svc:api#kind@entity:service.
+QUERY q_empty:
+FIND ?x WHERE ?x#kind@entity:host.
+"
+        report (core/query-ci-program program)]
+    (is (false? (:ok report)))
+    (is (= ["q_empty"] (get-in report [:checks :failed_must_return])))
+    (is (= 0 (get-in report [:checks :must_return 0 :row_count])))))
+
 (deftest rule-negation-derivation-test
   (testing "Negated literal derives fact when negated atom is absent"
     (let [program "MODULE demo.
@@ -48,6 +99,18 @@ THEN x#a@y.
 "]
     (is (thrown? clojure.lang.ExceptionInfo
                  (core/compile-program program)))))
+
+(deftest refinement-relation-stdlib-parse-test
+  (let [program "MODULE vstack.demo.
+REFINES core_to_logic [spec=tla:CoreMetaVM, impl=lean4:StepFn, mapping=map:core_to_logic].
+CORRESPONDS logic_to_runtime [left=lean4:StepFn, right=acl2:ExecStep, refines=core_to_logic].
+PROOF_OBLIGATION po_refines_sound [relation=core_to_logic, statement=\"next-state preserves invariant\", tool=z3, criticality=high].
+QUERY q:
+FIND ?x WHERE ?x#kind@entity:proof_obligation.
+"
+        out (core/execute-program program)]
+    (is (= [["proof_obligation:po_refines_sound"]]
+           (get-in out [:queries "q" :rows])))))
 
 (deftest native-macro-expansion-test
   (testing "Macro emits facts with parameter substitution"
@@ -332,6 +395,27 @@ USE missing_macro(x,y).
 "]
     (is (thrown? clojure.lang.ExceptionInfo
                  (core/execute-program program)))))
+
+
+(deftest stdlib-language-grammar-parser-adapter-query-test
+  (let [program "MODULE grammar.port.demo.
+LANGUAGE_PROFILE ocaml_base [family=ocaml, module_system=ml_module, artifact=typed_ast].
+GRAMMAR_PROFILE ocaml_expr_ebnf [language=ocaml_base, notation=ebnf, entrypoints=[expr module_item], status=draft].
+PARSER_ADAPTER antlr_ocaml_bridge [language=ocaml_base, grammar=ocaml_expr_ebnf, runtime=jvm, input_profile=source_text, output_profile=vetc_ir, determinism=best_effort].
+QUERY adapters:
+FIND ?a WHERE ?a#kind@entity:parser_adapter.
+QUERY adapter_language:
+FIND ?l WHERE parser_adapter:antlr_ocaml_bridge#language@?l.
+QUERY adapter_grammar:
+FIND ?g WHERE parser_adapter:antlr_ocaml_bridge#grammar@?g.
+"
+        out (core/execute-program program)]
+    (is (= [["parser_adapter:antlr_ocaml_bridge"]]
+           (get-in out [:queries "adapters" :rows])))
+    (is (= [["language_profile:ocaml_base"]]
+           (get-in out [:queries "adapter_language" :rows])))
+    (is (= [["grammar_profile:ocaml_expr_ebnf"]]
+           (get-in out [:queries "adapter_grammar" :rows])))))
 
 (deftest stdlib-declaration-lowering-test
   (let [program "MODULE demo.
