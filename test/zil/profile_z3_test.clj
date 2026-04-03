@@ -20,3 +20,8 @@
 (deftest compile-conditions-emits-smt-implies-test
   (let [{:keys [script]} (z3/compile-conditions ["x > 0 IMPLIES y > 0"])]
     (is (re-find #"\(=> " script))))
+
+(deftest compile-conditions-supports-logic-override-test
+  (let [{:keys [script logic]} (z3/compile-conditions ["x > 0"] {:logic :qf_lra})]
+    (is (= "QF_LRA" logic))
+    (is (re-find #"\(set-logic QF_LRA\)" script))))

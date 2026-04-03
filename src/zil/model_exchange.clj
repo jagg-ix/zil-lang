@@ -6,10 +6,12 @@
             [zil.profile.z3 :as z3]))
 
 (def supported-profiles
-  #{:tm.det :lts :constraint})
+  #{:auto :tm.det :lts :constraint})
 
 (def ^:private profile-aliases
-  {:tm.det :tm.det
+  {:auto :auto
+   "auto" :auto
+   :tm.det :tm.det
    :tm_atom :tm.det
    :tm :tm.det
    "tm.det" :tm.det
@@ -25,14 +27,55 @@
    "constraints" :constraint})
 
 (def ^:private profile-unit-kind
-  {:tm.det :tm_atom
+  {:auto :tm_atom
+   :tm.det :tm_atom
    :lts :lts_atom
    :constraint :policy})
 
 (def ^:private commit-policy-key
-  {:tm.det :tm_atom_commit
+  {:auto :tm_atom_commit
+   :tm.det :tm_atom_commit
    :lts :lts_atom_commit
    :constraint :constraint_commit})
+
+(defn- token->kw
+  [v]
+  (when (some? v)
+    (let [raw (if (keyword? v) (name v) (str v))
+          clean (-> raw str/trim str/lower-case)]
+      (when-not (str/blank? clean)
+        (keyword clean)))))
+
+(defn- attr-values
+  [v]
+  (if (and (coll? v) (not (map? v)))
+    v
+    [v]))
+
+(defn- infer-profile-from-compiled-results
+  [compiled-results]
+  (let [decls (mapcat :declarations compiled-results)
+        kinds (set (map :kind decls))
+        dsl-chain (->> decls
+                       (filter #(= :dsl_profile (:kind %)))
+                       (mapcat #(attr-values (get-in % [:attrs :verification_chain])))
+                       (map token->kw)
+                       (remove nil?)
+                       set)]
+    (cond
+      (or (contains? dsl-chain :constraint)
+          (contains? dsl-chain :proof_obligation)
+          (contains? dsl-chain :query_ci)
+          (contains? kinds :policy)
+          (contains? kinds :proof_obligation))
+      :constraint
+
+      (or (contains? dsl-chain :lts)
+          (contains? kinds :lts_atom))
+      :lts
+
+      :else
+      :tm.det)))
 
 (defn resolve-profile
   [profile]
@@ -143,18 +186,22 @@
          results (mapv compile-one files)
          successful (filterv :ok results)
          compiled-results (mapv :compiled successful)
+         effective-profile (if (= profile* :auto)
+                             (infer-profile-from-compiled-results compiled-results)
+                             profile*)
          errors (vec
                  (concat
                   (compile-errors results)
-                  (profile-bundle-errors profile* compiled-results)
-                  (profile-solver-errors profile* successful)))]
+                  (profile-bundle-errors effective-profile compiled-results)
+                  (profile-solver-errors effective-profile successful)))]
      {:ok (empty? errors)
      :path path
      :files files
       :modules (vec (map :module compiled-results))
-      :profile profile*
-      :unit_kind (get profile-unit-kind profile*)
-      :unit_count (count-decls-of-kind compiled-results (get profile-unit-kind profile*))
+      :profile effective-profile
+      :requested_profile profile*
+      :unit_kind (get profile-unit-kind effective-profile)
+      :unit_count (count-decls-of-kind compiled-results (get profile-unit-kind effective-profile))
       :tm_atoms (count-decls-of-kind compiled-results :tm_atom)
       :errors errors})))
 
@@ -197,18 +244,22 @@
          results (mapv compile-one files)
          successful (filterv :ok results)
          compiled-results (mapv :compiled successful)
-         unit-kind (get profile-unit-kind profile*)
+         effective-profile (if (= profile* :auto)
+                             (infer-profile-from-compiled-results compiled-results)
+                             profile*)
+         unit-kind (get profile-unit-kind effective-profile)
          errors (vec
                  (concat
                   (compile-errors results)
-                  (mapcat #(commit-policy-errors profile* strict-units-only? %) successful)
-                  (profile-solver-errors profile* successful)))]
+                  (mapcat #(commit-policy-errors effective-profile strict-units-only? %) successful)
+                  (profile-solver-errors effective-profile successful)))]
      {:ok (empty? errors)
       :path path
       :files files
       :modules (vec (map :module compiled-results))
-      :profile profile*
-      :policy (get commit-policy-key profile*)
+      :profile effective-profile
+      :requested_profile profile*
+      :policy (get commit-policy-key effective-profile)
       :strict_units_only strict-units-only?
       :unit_kind unit-kind
       :unit_count (count-decls-of-kind compiled-results unit-kind)

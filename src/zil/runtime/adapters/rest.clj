@@ -7,12 +7,11 @@
   - :headers                   ; map of headers
   - :body                      ; request body for non-GET methods
   - :timeout_ms                ; request timeout (default: 5000)
-  - :format                    ; json|edn|text (default: json for :url, text otherwise)
+  - :format                    ; json|yaml|yml|csv|edn|kv|text (default: json for :url, text otherwise)
   - :mock_response / :mock_responses
   - :path                      ; local payload file"
-  (:require [clojure.data.json :as json]
-            [clojure.edn :as edn]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
+            [zil.runtime.codec :as rc]
             [zil.runtime.adapters.core :as ac])
   (:import [java.net URI]
            [java.net.http HttpClient HttpRequest HttpRequest$BodyPublishers HttpResponse$BodyHandlers]
@@ -40,10 +39,14 @@
        :text)))
 
 (defn- parse-body
-  [body format]
+  [body format attrs]
   (case format
-    :json (json/read-str body :key-fn keyword)
-    :edn (edn/read-string body)
+    :json (rc/parse-string :json body attrs)
+    :csv (rc/parse-string :csv body attrs)
+    :yaml (rc/parse-string :yaml body attrs)
+    :yml (rc/parse-string :yml body attrs)
+    :kv (rc/parse-string :kv body attrs)
+    :edn (rc/parse-string :edn body attrs)
     :text {:raw body}
     {:raw body}))
 
@@ -61,7 +64,12 @@
     (cond
       (nil? body) ""
       (string? body) body
-      (= fmt :json) (json/write-str body)
+      (= fmt :json) (rc/emit-string :json body attrs)
+      (= fmt :csv) (rc/emit-string :csv body attrs)
+      (= fmt :yaml) (rc/emit-string :yaml body attrs)
+      (= fmt :yml) (rc/emit-string :yml body attrs)
+      (= fmt :kv) (rc/emit-string :kv body attrs)
+      (= fmt :edn) (rc/emit-string :edn body attrs)
       :else (pr-str body))))
 
 (defn- build-request
@@ -108,10 +116,10 @@
       mock-one (to-records mock-one)
       (:url attrs) (-> attrs
                        http-read
-                       (parse-body format)
+                       (parse-body format attrs)
                        to-records)
       path (-> (slurp path)
-               (parse-body format)
+               (parse-body format attrs)
                to-records)
       :else [])))
 

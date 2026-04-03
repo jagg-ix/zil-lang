@@ -3,6 +3,7 @@
    theorem contracts -> bridge module -> lts/constraint checks -> TLA/Lean exports."
   (:require [clojure.java.io :as io]
             [zil.bridge.lean4 :as bl]
+            [zil.bridge.query-ci :as bqci]
             [zil.bridge.theorem :as bth]
             [zil.bridge.tla :as bt]
             [zil.model-exchange :as mx]))
@@ -35,20 +36,28 @@
   Options:
   - :out-dir         output directory for generated artifacts (default: /tmp)
   - :bridge-module   override theorem-bridge module name
+  - :query-ci-profile optional DSL profile name for query-ci stage
+  - :query-ci-lib-dir optional lib dir for preprocess fallback in query-ci stage
   - :tla-module      override exported TLA module name
   - :lean-namespace  override exported Lean namespace"
   ([path]
    (run-theorem-ci path {}))
-  ([path {:keys [out-dir bridge-module tla-module lean-namespace]}]
+  ([path {:keys [out-dir bridge-module query-ci-profile query-ci-lib-dir tla-module lean-namespace]}]
    (let [out-dir* (ensure-dir! (or out-dir "/tmp"))
          stem (file-stem path)
          bridge-zc (.getAbsolutePath (io/file out-dir* (str stem ".theorem-bridge.zc")))
          bridge-tla (.getAbsolutePath (io/file out-dir* (str stem ".theorem-bridge.tla")))
          bridge-lean (.getAbsolutePath (io/file out-dir* (str stem ".theorem-bridge.lean")))
+         query-ci-report (bqci/run-query-ci-path
+                          path
+                          (cond-> {:include_rows false}
+                            query-ci-profile (assoc :profile query-ci-profile)
+                            query-ci-lib-dir (assoc :lib-dir query-ci-lib-dir)))
          bridge-report (bth/theorem-contracts->bridge
                         path
                         (cond-> {:output-path bridge-zc}
                           bridge-module (assoc :module-name bridge-module)))
+         _ (assert-ok! :query-ci query-ci-report)
          lts-report (mx/check-bundle bridge-zc {:profile :lts})
          constraint-report (mx/check-bundle bridge-zc {:profile :constraint})
          _ (assert-ok! :lts-check lts-report)
@@ -68,7 +77,8 @@
                   :bridge_tla bridge-tla
                   :bridge_lean bridge-lean}
       :bridge (dissoc bridge-report :text)
-      :checks {:lts lts-report
+      :checks {:query_ci query-ci-report
+               :lts lts-report
                :constraint constraint-report}
       :exports {:tla (dissoc tla-report :text)
                 :lean (dissoc lean-report :text)}})))

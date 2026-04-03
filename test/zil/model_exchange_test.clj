@@ -60,6 +60,20 @@ SERVICE web [env=prod].
       (is (= :constraint (:profile constraint-report)))
       (is (= :policy (:unit_kind constraint-report))))))
 
+(deftest auto-profile-infers-from-dsl-profile-test
+  (let [dir (tmp-dir)
+        file (java.io.File. dir "bundle-auto-lts.zc")]
+    (spit file (str "MODULE bundle.auto.lts.\n"
+                    "QUERY_PACK qp_main [queries=[q_health]].\n"
+                    "DSL_PROFILE ops [query_pack=qp_main, verification_chain=[lts], planner_hint=high_selectivity_first].\n"
+                    lts-atom-minimal
+                    "\n"))
+    (let [report (mx/check-bundle (.getAbsolutePath file) {:profile :auto})]
+      (is (:ok report))
+      (is (= :auto (:requested_profile report)))
+      (is (= :lts (:profile report)))
+      (is (= :lts_atom (:unit_kind report))))))
+
 (deftest constraint-profile-solver-checks-sat-and-unsat-test
   (with-z3
    (fn []
@@ -162,6 +176,18 @@ POLICY p2 [condition=\"x < 0\", criticality=high].
       (is (:ok relaxed-report))
       (is (= :lts_atom_commit (:policy relaxed-report)))
       (is (= :lts_atom (:unit_kind relaxed-report))))))
+
+(deftest commit-check-auto-profile-falls-back-to-tmdet-test
+  (let [dir (tmp-dir)
+        model-file (java.io.File. dir "auto-tm.zc")]
+    (spit model-file (str "MODULE commit.auto.tm.\n"
+                          tm-atom-minimal
+                          "\n"))
+    (let [report (mx/check-commit (.getAbsolutePath dir) {:profile :auto})]
+      (is (:ok report))
+      (is (= :auto (:requested_profile report)))
+      (is (= :tm.det (:profile report)))
+      (is (= :tm_atom_commit (:policy report))))))
 
 (deftest commit-check-constraint-unsat-fails-with-solver-error-test
   (with-z3

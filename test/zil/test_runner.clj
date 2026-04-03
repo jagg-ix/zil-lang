@@ -4,9 +4,13 @@
             [zil.bridge-theorem-ci-test]
             [zil.bridge-theorem-dsl-ci-test]
             [zil.bridge-theorem-test]
+            [zil.bridge-proof-obligation-test]
+            [zil.bridge-vstack-ci-test]
+            [zil.bridge-vstack-test]
             [zil.bridge-tla-test]
             [zil.core-test]
             [zil.import-hcl-test]
+            [zil.interop-test]
             [zil.lower-test]
             [zil.model-exchange-test]
             [zil.preprocess-test]
@@ -20,9 +24,13 @@
                                         'zil.bridge-theorem-ci-test
                                         'zil.bridge-theorem-dsl-ci-test
                                         'zil.bridge-theorem-test
+                                        'zil.bridge-proof-obligation-test
+                                        'zil.bridge-vstack-ci-test
+                                        'zil.bridge-vstack-test
                                         'zil.bridge-tla-test
                                         'zil.core-test
                                         'zil.import-hcl-test
+                                        'zil.interop-test
                                         'zil.lower-test
                                         'zil.model-exchange-test
                                         'zil.preprocess-test

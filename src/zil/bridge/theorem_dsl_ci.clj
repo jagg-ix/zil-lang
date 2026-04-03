@@ -47,6 +47,20 @@
     (.mkdirs dir)
     (.getAbsolutePath dir)))
 
+(defn- parent-chain
+  [^java.io.File dir]
+  (take-while some? (iterate #(.getParentFile ^java.io.File %) dir)))
+
+(defn- resolve-default-theorem-lib-dir
+  [model-path]
+  (let [mf (-> model-path io/file .getAbsoluteFile)
+        start (if (.isDirectory mf) mf (.getParentFile mf))]
+    (some (fn [^java.io.File d]
+            (let [cand (io/file d "libsets" "theorem-dsl-ci")]
+              (when (.isDirectory cand)
+                (.getAbsolutePath cand))))
+          (parent-chain start))))
+
 (defn- truthy-fact?
   [subject]
   (= "value:true" (token->name subject)))
@@ -191,10 +205,11 @@
            bridge-lean (.getAbsolutePath (io/file out-dir* (str stem ".dsl.bridge.lean")))
            summary-json* (or summary-json
                              (.getAbsolutePath (io/file out-dir* (str stem ".dsl.summary.json"))))
+           lib-dir* (or lib-dir (resolve-default-theorem-lib-dir model-path))
            preprocess-report (zp/preprocess-model
                               model-path
                               (cond-> {:output-path pre-zc}
-                                lib-dir (assoc :lib-dir lib-dir)))
+                                lib-dir* (assoc :lib-dir lib-dir*)))
            execution-report (core/execute-file pre-zc)
            op-summary (operator-summary (:facts execution-report))
            bridge-report (bth/theorem-contracts->bridge

@@ -387,33 +387,44 @@
                     {:ast ast}))))
 
 (defn compile-conditions
-  [conditions]
-  (let [conds (->> conditions
-                   (map #(str/trim (str %)))
-                   (remove str/blank?)
-                   vec)
-        asts (mapv parse-condition conds)
-        sorts (infer-sorts asts)
-        symbols (smt-symbol-table (keys sorts))
-        decls (->> sorts
-                   (sort-by key)
-                   (map (fn [[nm sort]]
-                          (str "(declare-fun " (get symbols nm) " () " (smt-sort sort) ")"))))
-        asserts (map (fn [ast]
-                       (str "(assert " (emit-expr ast symbols) ")"))
-                     asts)
-        script (str
-                "(set-logic ALL)\n"
-                (str/join "\n" decls)
-                (when (seq decls) "\n")
-                (str/join "\n" asserts)
-                (when (seq asserts) "\n")
-                "(check-sat)\n")]
-    {:conditions conds
-     :asts asts
-     :sorts sorts
-     :symbols symbols
-     :script script}))
+  ([conditions]
+   (compile-conditions conditions {}))
+  ([conditions {:keys [logic] :or {logic "ALL"}}]
+   (let [logic-token (cond
+                       (keyword? logic) (-> logic name str/upper-case)
+                       (string? logic) (-> logic str/trim str/upper-case)
+                       :else (str logic))
+         _ (when-not (re-matches #"[A-Z0-9_+\-]+" logic-token)
+             (throw (ex-info "Invalid SMT logic token"
+                             {:logic logic
+                              :normalized logic-token})))
+         conds (->> conditions
+                    (map #(str/trim (str %)))
+                    (remove str/blank?)
+                    vec)
+         asts (mapv parse-condition conds)
+         sorts (infer-sorts asts)
+         symbols (smt-symbol-table (keys sorts))
+         decls (->> sorts
+                    (sort-by key)
+                    (map (fn [[nm sort]]
+                           (str "(declare-fun " (get symbols nm) " () " (smt-sort sort) ")"))))
+         asserts (map (fn [ast]
+                        (str "(assert " (emit-expr ast symbols) ")"))
+                      asts)
+         script (str
+                 "(set-logic " logic-token ")\n"
+                 (str/join "\n" decls)
+                 (when (seq decls) "\n")
+                 (str/join "\n" asserts)
+                 (when (seq asserts) "\n")
+                 "(check-sat)\n")]
+     {:conditions conds
+      :logic logic-token
+      :asts asts
+      :sorts sorts
+      :symbols symbols
+      :script script})))
 
 (defn run-z3
   [script]
@@ -446,20 +457,22 @@
        :stdout out})))
 
 (defn check-conditions
-  [conditions]
-  (if-not (z3-available?)
-    {:ok false
-     :status :unavailable
-     :error "z3 executable not available in PATH"}
-    (try
-      (let [{:keys [script symbols sorts] :as compiled} (compile-conditions conditions)
-            solver (run-z3 script)]
-        (merge compiled solver))
-      (catch Exception e
-        {:ok false
-         :status :error
-         :error (.getMessage e)
-         :data (ex-data e)}))))
+  ([conditions]
+   (check-conditions conditions {}))
+  ([conditions options]
+   (if-not (z3-available?)
+     {:ok false
+      :status :unavailable
+      :error "z3 executable not available in PATH"}
+     (try
+       (let [{:keys [script symbols sorts] :as compiled} (compile-conditions conditions options)
+             solver (run-z3 script)]
+         (merge compiled solver))
+       (catch Exception e
+         {:ok false
+          :status :error
+          :error (.getMessage e)
+          :data (ex-data e)})))))
 
 (defn check-policy-declarations
   [policies {:keys [scope] :or {scope :bundle}}]

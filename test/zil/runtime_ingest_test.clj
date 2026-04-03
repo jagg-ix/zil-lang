@@ -63,6 +63,35 @@ DATASOURCE ds_cmd [type=command, command=\"printf 'hello-from-cmd'\"].
               snapshot))
     (is (some #(= "datasource:ds_cmd" (:object %)) snapshot))))
 
+(deftest ingest-file-and-command-formats-test
+  (let [tmp-json (java.io.File/createTempFile "zil-ingest-fmt" ".json")
+        tmp-yaml (java.io.File/createTempFile "zil-ingest-fmt" ".yaml")
+        tmp-csv (java.io.File/createTempFile "zil-ingest-fmt" ".csv")
+        _ (.deleteOnExit tmp-json)
+        _ (.deleteOnExit tmp-yaml)
+        _ (.deleteOnExit tmp-csv)
+        _ (spit tmp-json (json/write-str [{:metric "metric:json_a" :value 11}
+                                          {:metric "metric:json_b" :value 12}]))
+        _ (spit tmp-yaml "- metric: metric:yaml_a\n  value: 21\n- metric: metric:yaml_b\n  value: 22\n")
+        _ (spit tmp-csv "metric,value\nmetric:csv_a,31\nmetric:csv_b,32\n")
+        path-json (.getAbsolutePath tmp-json)
+        path-yaml (.getAbsolutePath tmp-yaml)
+        path-csv (.getAbsolutePath tmp-csv)
+        program (str "MODULE ingest.formats.demo.\n"
+                     "DATASOURCE ds_json [type=file, path=\"" path-json "\", format=json].\n"
+                     "DATASOURCE ds_yaml [type=file, path=\"" path-yaml "\", format=yaml].\n"
+                     "DATASOURCE ds_csv [type=file, path=\"" path-csv "\", format=csv].\n"
+                     "DATASOURCE ds_cmd_json [type=command, format=json, command=\"printf '{\\\"metric\\\":\\\"metric:cmd_json\\\",\\\"value\\\":55}'\"].\n")
+        compiled (core/compile-program program)
+        conn (zr/make-conn)
+        summary (ingest/ingest-all! conn compiled {:revision 101})
+        snapshot (zr/facts-at-or-before @conn 101)]
+    (is (= 4 (:sources summary)))
+    (is (some #(= "metric:json_a" (:object %)) snapshot))
+    (is (some #(= "metric:yaml_a" (:object %)) snapshot))
+    (is (some #(= "metric:csv_a" (:object %)) snapshot))
+    (is (some #(= "metric:cmd_json" (:object %)) snapshot))))
+
 (deftest rest-http-and-interval-polling-test
   (let [{:keys [server url counter]} (start-json-server)]
     (try
