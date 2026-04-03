@@ -151,6 +151,10 @@ RULE bfc_tool_known_z3:
 IF ?x#tool@tool:z3
 THEN ?x#tool_known@value:true.
 
+RULE bfc_tool_known_acl2:
+IF ?x#tool@tool:acl2
+THEN ?x#tool_known@value:true.
+
 RULE bfc_verdict_known_satisfied:
 IF ?f#verdict@value:satisfied
 THEN ?f#verdict_known@value:true.
@@ -218,6 +222,14 @@ THEN ?b#capability_known@capability:emit_lean4.
 RULE bfc_capability_known_check_z3:
 IF ?b#capability@capability:check_z3
 THEN ?b#capability_known@capability:check_z3.
+
+RULE bfc_capability_known_check_acl2:
+IF ?b#capability@capability:check_acl2
+THEN ?b#capability_known@capability:check_acl2.
+
+RULE bfc_capability_known_emit_acl2:
+IF ?b#capability@capability:emit_acl2
+THEN ?b#capability_known@capability:emit_acl2.
 
 RULE bfc_capability_known_ingest_feedback:
 IF ?b#capability@capability:ingest_feedback
