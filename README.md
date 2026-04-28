@@ -178,22 +178,6 @@ TLM formal backend bridge example (Z3/TLA+/Lean4):
 ./bin/zil export-lean examples/tlm-formal-bridge.zc /tmp/tlm_bridge.lean Zil.Generated.TLM
 ```
 
-D-MetaVM (evmone-oriented) model example:
-
-```bash
-./bin/zil examples/evmone-dmetavm.zc
-./bin/zil bundle-check examples/evmone-dmetavm.zc lts
-./bin/zil bundle-check examples/evmone-dmetavm.zc constraint
-./bin/zil export-tla examples/evmone-dmetavm.zc /tmp/dmetavm_evmone.tla DMetaVMEvmone
-./bin/zil export-lean examples/evmone-dmetavm.zc /tmp/dmetavm_evmone.lean Zil.Generated.DMetaVMEvmone
-```
-
-D-MetaVM one-shot formal pipeline wrapper:
-
-```bash
-./tools/dmetavm_formal_ci.sh
-```
-
 ## Native Macro System
 
 Zil has its own language-level macro system (independent of Clojure macros):
